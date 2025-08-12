@@ -1,0 +1,13 @@
+env: "local"
+
+grpc:
+  host: "0.0.0.0"
+  port: "50051"
+
+auth:
+  jwt_secret: "test-secret-key"
+  access_token_ttl: 15m
+  refresh_token_ttl: 720h
+
+db:
+  db_url: "postgres://пользователь:пароль@localhost:5432/имя_бд?sslmode=disable"
