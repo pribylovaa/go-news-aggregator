@@ -8,9 +8,9 @@ import (
 
 // User - модель пользователя в системе.
 type User struct {
-	ID        uuid.UUID
-	Email     string
-	Password  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID           uuid.UUID
+	Email        string
+	PasswordHash string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }

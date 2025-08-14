@@ -12,7 +12,7 @@ import (
 var (
 	// ErrNotFound — запись не найдена (пользователь/токен).
 	ErrNotFound = errors.New("not found")
-	// ErrAlreadyExists — нарушение уникальности (email/refresh token hash).
+	// ErrAlreadyExists — нарушение уникальности (email/refresh-token).
 	ErrAlreadyExists = errors.New("already exists")
 	// ErrExpired — сущность просрочена (refresh-token).
 	ErrExpired = errors.New("expired")
@@ -46,5 +46,5 @@ type RefreshTokenStorage interface {
 type Storage interface {
 	UserStorage
 	RefreshTokenStorage
-	Close() error
+	Close()
 }
