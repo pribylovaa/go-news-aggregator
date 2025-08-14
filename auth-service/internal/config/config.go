@@ -27,7 +27,7 @@ type AuthConfig struct {
 }
 
 type DBConfig struct {
-	Database_url string `yaml:"db_url" env-required:"true"`
+	DatabaseURL string `yaml:"db_url" env-required:"true"`
 }
 
 // MustLoad загружает конфигурацию из файла YAML, путь к которому определяется из флага --config
