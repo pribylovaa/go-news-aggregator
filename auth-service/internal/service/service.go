@@ -7,16 +7,18 @@ import (
 )
 
 var (
-	// логин/пароль неверны или пользователь не найден
+	// ErrInvalidCredentials - логин/пароль неверны или пользователь не найден.
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	// access/refresh токен не проходит формат/подпись/поиск
+	// ErrInvalidToken - access/refresh токен не проходит формат/подпись/поиск.
 	ErrInvalidToken = errors.New("invalid token")
-	// refresh (или access при валидации) просрочен
+	// ErrTokenExpired - refresh (или access при валидации) просрочен.
 	ErrTokenExpired = errors.New("token expired")
-	// refresh отозван (logout/compromise)
+	// ErrTokenRevoked - refresh отозван (logout/compromise).
 	ErrTokenRevoked = errors.New("token revoked")
-	// попытка регистрации с занятым email
+	// ErrEmailTaken - попытка регистрации с занятым email.
 	ErrEmailTaken = errors.New("email already taken")
+	// ErrRefreshTokenCollision - ошибка коллизии токена.
+	ErrRefreshTokenCollision = errors.New("refresh token collision, try again")
 )
 
 // Service описывает бизнес-логику auth-сервиса.
