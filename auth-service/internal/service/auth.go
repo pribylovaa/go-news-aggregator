@@ -47,7 +47,7 @@ func (s *Service) RegisterUser(ctx context.Context, email, password string) (*mo
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return s.issueTokenPair(ctx, user)
+	return s.issueTokenPair(ctx, user, "")
 }
 
 // LoginUser выполняет вход по email+пароль.
@@ -67,7 +67,7 @@ func (s *Service) LoginUser(ctx context.Context, email, password string) (*model
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 	}
 
-	return s.issueTokenPair(ctx, user)
+	return s.issueTokenPair(ctx, user, "")
 }
 
 // RefreshToken обновляет пару токенов по refresh-токену.
@@ -90,7 +90,7 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*model
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return s.issueTokenPair(ctx, user)
+	return s.issueTokenPair(ctx, user, hash)
 }
 
 // RevokeToken отзывает refresh-токен.
@@ -141,12 +141,23 @@ func checkPassword(hash, password string) bool {
 }
 
 // issueTokenPair выпускает новую пару access+refresh токенов.
-func (s *Service) issueTokenPair(ctx context.Context, user *models.User) (*models.TokenPair, uuid.UUID, error) {
+// Если oldRefreshHash != "", пытается атомарно отозвать старый refresh-токен.
+func (s *Service) issueTokenPair(ctx context.Context, user *models.User, oldRefreshHash string) (*models.TokenPair, uuid.UUID, error) {
 	const op = "service.auth.issueTokenPair"
 
 	accessToken, err := s.generateAccessToken(user.ID, user.Email)
 	if err != nil {
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if oldRefreshHash != "" {
+		revoked, err := s.storage.RevokeRefreshTokenIfActive(ctx, oldRefreshHash)
+		if err != nil {
+			return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
+		}
+		if !revoked {
+			return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrTokenRevoked)
+		}
 	}
 
 	refreshToken, plain, err := s.generateRefreshToken(ctx, user.ID)

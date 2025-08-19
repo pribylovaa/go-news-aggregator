@@ -38,6 +38,8 @@ type RefreshTokenStorage interface {
 	RefreshTokenByHash(ctx context.Context, hash string) (*models.RefreshToken, error)
 	// RevokeRefreshToken помечает токен как отозванный.
 	RevokeRefreshToken(ctx context.Context, hash string) error
+	// RevokeRefreshTokenIfActive пытается отозвать refresh-токен, если он ещё не был отозван.
+	RevokeRefreshTokenIfActive(ctx context.Context, hash string) (bool, error)
 	// DeleteExpiredTokens удаляет все просроченные токены.
 	DeleteExpiredTokens(ctx context.Context, now time.Time) error
 }

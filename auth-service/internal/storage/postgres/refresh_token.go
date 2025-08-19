@@ -95,6 +95,32 @@ func (s *Storage) RevokeRefreshToken(ctx context.Context, hash string) error {
 	return nil
 }
 
+// RevokeRefreshTokenIfActive пытается отозвать refresh-токен, если он ещё не был отозван.
+// Возвращает true, если токен успешно отозван, false — если токен уже был отозван.
+func (s *Storage) RevokeRefreshTokenIfActive(ctx context.Context, hash string) (bool, error) {
+	const op = "storage.postgres.RevokeRefreshTokenIfActive"
+
+	query := `
+		UPDATE refresh_tokens
+		SET revoked = TRUE
+		WHERE token_hash = $1 AND revoked = FALSE
+		RETURNING user_id
+	`
+
+	var userID string
+	err := s.db.QueryRow(ctx, query, hash).Scan(&userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Токен уже отозван или не найден.
+			return false, nil
+		}
+
+		return false, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return true, nil
+}
+
 // DeleteExpiredTokens удаляет все просроченные токены.
 func (s *Storage) DeleteExpiredTokens(ctx context.Context, now time.Time) error {
 	const op = "storage.postgres.DeleteExpiredTokens"
