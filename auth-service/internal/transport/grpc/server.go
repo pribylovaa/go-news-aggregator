@@ -87,8 +87,8 @@ func (s *AuthServer) RevokeToken(ctx context.Context, req *authv1.RevokeTokenReq
 	const op = "transport/grpc/server/RevokeToken"
 
 	if err := s.service.RevokeToken(ctx, req.GetRefreshToken()); err != nil {
-		if errors.Is(err, service.ErrInvalidToken) {
-			return nil, status.Errorf(codes.NotFound, "%s: %v", op, err)
+		if errors.Is(err, service.ErrInvalidToken) || errors.Is(err, service.ErrTokenExpired) || errors.Is(err, service.ErrTokenRevoked) {
+			return nil, status.Errorf(codes.Unauthenticated, "%s: %v", op, err)
 		}
 
 		return nil, status.Errorf(codes.Internal, "%s: %v", op, err)

@@ -213,7 +213,9 @@ func validatePassword(pw string) error {
 func (s *Service) issueTokenPair(ctx context.Context, user *models.User, oldRefreshHash string) (*models.TokenPair, uuid.UUID, error) {
 	const op = "service.auth.issueTokenPair"
 
-	accessToken, err := s.generateAccessToken(user.ID, user.Email)
+	now := time.Now().UTC()
+
+	accessToken, err := s.generateAccessToken(user.ID, user.Email, now)
 	if err != nil {
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -241,6 +243,6 @@ func (s *Service) issueTokenPair(ctx context.Context, user *models.User, oldRefr
 	return &models.TokenPair{
 		AccessToken:     accessToken,
 		RefreshToken:    plain,
-		AccessExpiresAt: time.Now().UTC().Add(s.cfg.AccessTokenTTL),
+		AccessExpiresAt: now.Add(s.cfg.AccessTokenTTL),
 	}, user.ID, nil
 }

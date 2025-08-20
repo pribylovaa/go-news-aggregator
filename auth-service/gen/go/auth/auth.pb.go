@@ -463,7 +463,7 @@ const file_auth_proto_rawDesc = "" +
 	"\tLoginUser\x12\x12.auth.LoginRequest\x1a\x12.auth.AuthResponse\x12=\n" +
 	"\fRefreshToken\x12\x19.auth.RefreshTokenRequest\x1a\x12.auth.AuthResponse\x12B\n" +
 	"\vRevokeToken\x12\x18.auth.RevokeTokenRequest\x1a\x19.auth.RevokeTokenResponse\x12H\n" +
-	"\rValidateToken\x12\x1a.auth.ValidateTokenRequest\x1a\x1b.auth.ValidateTokenResponseBJZHgithub.com/pribylovaa/go-news-aggregator/auth-service/gen/go/auth;authv1b\x06proto3"
+	"\rValidateToken\x12\x1a.auth.ValidateTokenRequest\x1a\x1b.auth.ValidateTokenResponseB\x15Z\x13/gen/go/auth;authv1b\x06proto3"
 
 var (
 	file_auth_proto_rawDescOnce sync.Once

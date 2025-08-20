@@ -22,13 +22,16 @@ type accessClaims struct {
 }
 
 // generateAccessToken генерирует access-токен.
-func (s *Service) generateAccessToken(userID uuid.UUID, email string) (string, error) {
+func (s *Service) generateAccessToken(userID uuid.UUID, email string, now time.Time) (string, error) {
 	claims := accessClaims{
 		UserID: userID.String(),
 		Email:  email,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(s.cfg.AccessTokenTTL)),
-			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
+			ExpiresAt: jwt.NewNumericDate(now.Add(s.cfg.AccessTokenTTL)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			Issuer:    s.cfg.Issuer,
+			Subject:   userID.String(),
+			Audience:  jwt.ClaimStrings(s.cfg.Audience),
 		},
 	}
 
@@ -49,6 +52,9 @@ func (s *Service) validateAccessToken(tokenStr string) (uuid.UUID, string, error
 			return []byte(s.cfg.JWTSecret), nil
 		},
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithLeeway(5*time.Second),
+		jwt.WithIssuer(s.cfg.Issuer),
+		jwt.WithAudience(s.cfg.Audience...),
 	)
 
 	if err != nil {

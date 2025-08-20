@@ -8,6 +8,8 @@ auth:
   jwt_secret: "test-secret-key"
   access_token_ttl: 15m
   refresh_token_ttl: 720h
+  issuer: auth-service
+  audience: ["api-gateway"]
 
 db:
   db_url: "postgres://пользователь:пароль@localhost:5432/имя_бд?sslmode=disable"
