@@ -73,7 +73,7 @@ func (s *Service) validateAccessToken(tokenStr string) (uuid.UUID, string, error
 }
 
 // generateRefreshToken создает новый refresh-токен.
-func (s *Service) generateRefreshToken(ctx context.Context, userID uuid.UUID) (*models.RefreshToken, string, error) {
+func (s *Service) generateRefreshToken(ctx context.Context, userID uuid.UUID) (string, error) {
 	const (
 		op          = "service.token.generateRefreshToken"
 		maxAttempts = 5
@@ -82,7 +82,7 @@ func (s *Service) generateRefreshToken(ctx context.Context, userID uuid.UUID) (*
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		b := make([]byte, 32)
 		if _, err := rand.Read(b); err != nil {
-			return nil, "", fmt.Errorf("%s: %w", op, err)
+			return "", fmt.Errorf("%s: %w", op, err)
 		}
 		plain := base64.RawURLEncoding.EncodeToString(b)
 
@@ -104,13 +104,13 @@ func (s *Service) generateRefreshToken(ctx context.Context, userID uuid.UUID) (*
 				continue
 			}
 
-			return nil, "", fmt.Errorf("%s: %w", op, err)
+			return "", fmt.Errorf("%s: %w", op, err)
 		}
 
-		return token, plain, nil
+		return plain, nil
 	}
 
-	return nil, "", fmt.Errorf("%s: %w", op, ErrRefreshTokenCollision)
+	return "", fmt.Errorf("%s: %w", op, ErrRefreshTokenCollision)
 }
 
 // validateRefreshToken валидирует refresh-токен.

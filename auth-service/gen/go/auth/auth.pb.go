@@ -258,13 +258,13 @@ func (x *RevokeTokenResponse) GetOk() bool {
 }
 
 type AuthResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	AccessToken   string                 `protobuf:"bytes,2,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
-	RefreshToken  string                 `protobuf:"bytes,3,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
-	ExpiresIn     int64                  `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	UserId          string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	AccessToken     string                 `protobuf:"bytes,2,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	RefreshToken    string                 `protobuf:"bytes,3,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	AccessExpiresAt int64                  `protobuf:"varint,4,opt,name=access_expires_at,json=accessExpiresAt,proto3" json:"access_expires_at,omitempty"` // Unix timestamp (UTC)
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *AuthResponse) Reset() {
@@ -318,9 +318,9 @@ func (x *AuthResponse) GetRefreshToken() string {
 	return ""
 }
 
-func (x *AuthResponse) GetExpiresIn() int64 {
+func (x *AuthResponse) GetAccessExpiresAt() int64 {
 	if x != nil {
-		return x.ExpiresIn
+		return x.AccessExpiresAt
 	}
 	return 0
 }
@@ -446,13 +446,12 @@ const file_auth_proto_rawDesc = "" +
 	"\x12RevokeTokenRequest\x12#\n" +
 	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"%\n" +
 	"\x13RevokeTokenResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"\x8e\x01\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\x9b\x01\n" +
 	"\fAuthResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12!\n" +
 	"\faccess_token\x18\x02 \x01(\tR\vaccessToken\x12#\n" +
-	"\rrefresh_token\x18\x03 \x01(\tR\frefreshToken\x12\x1d\n" +
-	"\n" +
-	"expires_in\x18\x04 \x01(\x03R\texpiresIn\"9\n" +
+	"\rrefresh_token\x18\x03 \x01(\tR\frefreshToken\x12*\n" +
+	"\x11access_expires_at\x18\x04 \x01(\x03R\x0faccessExpiresAt\"9\n" +
 	"\x14ValidateTokenRequest\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\"\\\n" +
 	"\x15ValidateTokenResponse\x12\x14\n" +
@@ -464,7 +463,7 @@ const file_auth_proto_rawDesc = "" +
 	"\tLoginUser\x12\x12.auth.LoginRequest\x1a\x12.auth.AuthResponse\x12=\n" +
 	"\fRefreshToken\x12\x19.auth.RefreshTokenRequest\x1a\x12.auth.AuthResponse\x12B\n" +
 	"\vRevokeToken\x12\x18.auth.RevokeTokenRequest\x1a\x19.auth.RevokeTokenResponse\x12H\n" +
-	"\rValidateToken\x12\x1a.auth.ValidateTokenRequest\x1a\x1b.auth.ValidateTokenResponseB\x14Z\x12gen/go/auth;authv1b\x06proto3"
+	"\rValidateToken\x12\x1a.auth.ValidateTokenRequest\x1a\x1b.auth.ValidateTokenResponseBJZHgithub.com/pribylovaa/go-news-aggregator/auth-service/gen/go/auth;authv1b\x06proto3"
 
 var (
 	file_auth_proto_rawDescOnce sync.Once

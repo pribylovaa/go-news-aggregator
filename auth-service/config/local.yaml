@@ -11,3 +11,6 @@ auth:
 
 db:
   db_url: "postgres://пользователь:пароль@localhost:5432/имя_бд?sslmode=disable"
+
+timeouts:
+  service: 5s

@@ -1,7 +1,7 @@
 package config
 
 import (
-	"flag"
+	"fmt"
 	"os"
 	"time"
 
@@ -9,10 +9,15 @@ import (
 )
 
 type Config struct {
-	Env  string     `yaml:"env" env-default:"local"`
-	GRPC GRPCConfig `yaml:"grpc"`
-	Auth AuthConfig `yaml:"auth"`
-	DB   DBConfig   `yaml:"db"`
+	Env      string        `yaml:"env" env-default:"local"`
+	GRPC     GRPCConfig    `yaml:"grpc"`
+	Auth     AuthConfig    `yaml:"auth"`
+	DB       DBConfig      `yaml:"db"`
+	Timeouts TimeoutConfig `yaml:"timeouts"`
+}
+
+type TimeoutConfig struct {
+	Service time.Duration `yaml:"service" env-default:"5s"`
 }
 
 type GRPCConfig struct {
@@ -30,36 +35,53 @@ type DBConfig struct {
 	DatabaseURL string `yaml:"db_url" env-required:"true"`
 }
 
-// MustLoad загружает конфигурацию из файла YAML, путь к которому определяется из флага --config
-// или переменной окружения CONFIG_PATH.
-func MustLoad() *Config {
-	path := fetchConfigPath()
-	if path == "" {
-		panic("config path is empty")
+// MustLoad — обёртка над Load с panic при ошибке.
+func MustLoad(path string) *Config {
+	cfg, err := Load(path)
+	if err != nil {
+		panic(err)
 	}
 
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		panic("config file does not exist: " + path)
-	}
-
-	var cfg Config
-	if err := cleanenv.ReadConfig(path, &cfg); err != nil {
-		panic("failed to read config: " + err.Error())
-	}
-
-	return &cfg
+	return cfg
 }
 
-// fetchConfigPath возвращает путь к файлу конфигурации,
-// приоритетно используя флаг командной строки --config, затем переменную окружения CONFIG_PATH.
-func fetchConfigPath() string {
-	var res string
-	flag.StringVar(&res, "config", "", "path to config file")
-	flag.Parse()
+// Load загружает конфигурацию.
+func Load(path string) (*Config, error) {
+	var cfg Config
 
-	if res == "" {
-		res = os.Getenv("CONFIG_PATH")
+	tryRead := func(p string) (*Config, error) {
+		if p == "" {
+			return nil, fmt.Errorf("empty config path")
+		}
+		if _, err := os.Stat(p); err != nil {
+			return nil, fmt.Errorf("config file does not exist: %s", p)
+		}
+		if err := cleanenv.ReadConfig(p, &cfg); err != nil {
+			return nil, fmt.Errorf("failed to read config: %w", err)
+		}
+
+		return &cfg, nil
 	}
 
-	return res
+	if path != "" {
+		return tryRead(path)
+	}
+
+	if envPath := os.Getenv("CONFIG_PATH"); envPath != "" {
+		return tryRead(envPath)
+	}
+
+	if err := cleanenv.ReadEnv(&cfg); err != nil {
+		return nil, fmt.Errorf("config not found: provide --config, CONFIG_PATH, local.yaml or env vars: %w", err)
+	}
+
+	if _, err := os.Stat("local.yaml"); err == nil {
+		if err := cleanenv.ReadConfig("local.yaml", &cfg); err != nil {
+			return nil, fmt.Errorf("failed to read local.yaml: %w", err)
+		}
+
+		return &cfg, nil
+	}
+
+	return &cfg, nil
 }

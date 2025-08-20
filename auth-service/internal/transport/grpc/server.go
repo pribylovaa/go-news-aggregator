@@ -1,7 +1,7 @@
 package grpc
 
 import (
-	authv1 "auth-service/gen/go"
+	authv1 "auth-service/gen/go/auth"
 	"auth-service/internal/service"
 	"context"
 	"errors"
@@ -24,6 +24,10 @@ func (s *AuthServer) RegisterUser(ctx context.Context, req *authv1.RegisterReque
 
 	tokenPair, uid, err := s.service.RegisterUser(ctx, req.GetEmail(), req.GetPassword())
 	if err != nil {
+		if errors.Is(err, service.ErrInvalidEmail) || errors.Is(err, service.ErrWeakPassword) || errors.Is(err, service.ErrEmptyPassword) {
+			return nil, status.Errorf(codes.InvalidArgument, "%s: %v", op, err)
+		}
+
 		if errors.Is(err, service.ErrEmailTaken) {
 			return nil, status.Errorf(codes.AlreadyExists, "%s: %v", op, err)
 		}
@@ -32,10 +36,10 @@ func (s *AuthServer) RegisterUser(ctx context.Context, req *authv1.RegisterReque
 	}
 
 	return &authv1.AuthResponse{
-		UserId:       uid.String(),
-		AccessToken:  tokenPair.AccessToken,
-		RefreshToken: tokenPair.RefreshToken,
-		ExpiresIn:    tokenPair.ExpiresAt.Unix(),
+		UserId:          uid.String(),
+		AccessToken:     tokenPair.AccessToken,
+		RefreshToken:    tokenPair.RefreshToken,
+		AccessExpiresAt: tokenPair.AccessExpiresAt.Unix(),
 	}, nil
 }
 
@@ -52,10 +56,10 @@ func (s *AuthServer) LoginUser(ctx context.Context, req *authv1.LoginRequest) (*
 	}
 
 	return &authv1.AuthResponse{
-		UserId:       uid.String(),
-		AccessToken:  tokenPair.AccessToken,
-		RefreshToken: tokenPair.RefreshToken,
-		ExpiresIn:    tokenPair.ExpiresAt.Unix(),
+		UserId:          uid.String(),
+		AccessToken:     tokenPair.AccessToken,
+		RefreshToken:    tokenPair.RefreshToken,
+		AccessExpiresAt: tokenPair.AccessExpiresAt.Unix(),
 	}, nil
 }
 
@@ -72,10 +76,10 @@ func (s *AuthServer) RefreshToken(ctx context.Context, req *authv1.RefreshTokenR
 	}
 
 	return &authv1.AuthResponse{
-		UserId:       uid.String(),
-		AccessToken:  tokenPair.AccessToken,
-		RefreshToken: tokenPair.RefreshToken,
-		ExpiresIn:    tokenPair.ExpiresAt.Unix(),
+		UserId:          uid.String(),
+		AccessToken:     tokenPair.AccessToken,
+		RefreshToken:    tokenPair.RefreshToken,
+		AccessExpiresAt: tokenPair.AccessExpiresAt.Unix(),
 	}, nil
 }
 

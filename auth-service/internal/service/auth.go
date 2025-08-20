@@ -8,7 +8,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/mail"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -18,7 +21,16 @@ import (
 func (s *Service) RegisterUser(ctx context.Context, email, password string) (*models.TokenPair, uuid.UUID, error) {
 	const op = "service.auth.RegisterUser"
 
-	_, err := s.storage.UserByEmail(ctx, email)
+	normEmail, err := validateEmail(email)
+	if err != nil {
+		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrInvalidEmail)
+	}
+
+	if err := validatePassword(password); err != nil {
+		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	_, err = s.storage.UserByEmail(ctx, normEmail)
 	if err == nil {
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrEmailTaken)
 	}
@@ -33,7 +45,7 @@ func (s *Service) RegisterUser(ctx context.Context, email, password string) (*mo
 
 	user := &models.User{
 		ID:           uuid.New(),
-		Email:        email,
+		Email:        normEmail,
 		PasswordHash: hashedPassword,
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
@@ -54,7 +66,16 @@ func (s *Service) RegisterUser(ctx context.Context, email, password string) (*mo
 func (s *Service) LoginUser(ctx context.Context, email, password string) (*models.TokenPair, uuid.UUID, error) {
 	const op = "service.auth.LoginUser"
 
-	user, err := s.storage.UserByEmail(ctx, email)
+	normEmail, err := validateEmail(email)
+	if err != nil {
+		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+	}
+
+	if len(password) == 0 {
+		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+	}
+
+	user, err := s.storage.UserByEmail(ctx, normEmail)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
@@ -86,9 +107,6 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*model
 
 	hashBytes := sha256.Sum256([]byte(refreshToken))
 	hash := base64.RawURLEncoding.EncodeToString(hashBytes[:])
-	if err := s.storage.RevokeRefreshToken(ctx, hash); err != nil && !errors.Is(err, storage.ErrNotFound) {
-		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
-	}
 
 	return s.issueTokenPair(ctx, user, hash)
 }
@@ -140,6 +158,56 @@ func checkPassword(hash, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
 
+// validateEmail проверяет базовый формат email и обрезает пробелы снаружи.
+func validateEmail(raw string) (string, error) {
+	const op = "service.auth.validateEmail"
+
+	email := strings.TrimSpace(raw)
+	if email == "" {
+		return "", fmt.Errorf("%s: %w", op, ErrInvalidEmail)
+	}
+
+	if _, err := mail.ParseAddress(email); err != nil {
+		return "", fmt.Errorf("%s: %w", op, ErrInvalidEmail)
+	}
+
+	return strings.ToLower(email), nil
+}
+
+// validatePassword проверяет минимальные требования к паролю.
+// Политика по умолчанию: длина >= 8, хотя бы одна строчная, заглавная, цифра и спецсимвол.
+func validatePassword(pw string) error {
+	const op = "service.auth.validatePassword"
+
+	if len(pw) == 0 {
+		return fmt.Errorf("%s: %w", op, ErrEmptyPassword)
+	}
+
+	if len([]rune(pw)) < 8 {
+		return fmt.Errorf("%s: %w", op, ErrWeakPassword)
+	}
+
+	var hasLower, hasUpper, hasDigit, hasSpecial bool
+	for _, r := range pw {
+		switch {
+		case unicode.IsLower(r):
+			hasLower = true
+		case unicode.IsUpper(r):
+			hasUpper = true
+		case unicode.IsDigit(r):
+			hasDigit = true
+		case unicode.IsPunct(r) || unicode.IsSymbol(r):
+			hasSpecial = true
+		}
+	}
+
+	if !(hasLower && hasUpper && hasDigit && hasSpecial) {
+		return fmt.Errorf("%s: %w", op, ErrWeakPassword)
+	}
+
+	return nil
+}
+
 // issueTokenPair выпускает новую пару access+refresh токенов.
 // Если oldRefreshHash != "", пытается атомарно отозвать старый refresh-токен.
 func (s *Service) issueTokenPair(ctx context.Context, user *models.User, oldRefreshHash string) (*models.TokenPair, uuid.UUID, error) {
@@ -153,21 +221,26 @@ func (s *Service) issueTokenPair(ctx context.Context, user *models.User, oldRefr
 	if oldRefreshHash != "" {
 		revoked, err := s.storage.RevokeRefreshTokenIfActive(ctx, oldRefreshHash)
 		if err != nil {
+			if errors.Is(err, storage.ErrNotFound) {
+				return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrInvalidToken)
+			}
+
 			return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 		}
+
 		if !revoked {
 			return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrTokenRevoked)
 		}
 	}
 
-	refreshToken, plain, err := s.generateRefreshToken(ctx, user.ID)
+	plain, err := s.generateRefreshToken(ctx, user.ID)
 	if err != nil {
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return &models.TokenPair{
-		AccessToken:  accessToken,
-		RefreshToken: plain,
-		ExpiresAt:    refreshToken.ExpiresAt,
+		AccessToken:     accessToken,
+		RefreshToken:    plain,
+		AccessExpiresAt: time.Now().UTC().Add(s.cfg.AccessTokenTTL),
 	}, user.ID, nil
 }

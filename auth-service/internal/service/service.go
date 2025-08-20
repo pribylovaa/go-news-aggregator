@@ -19,6 +19,12 @@ var (
 	ErrEmailTaken = errors.New("email already taken")
 	// ErrRefreshTokenCollision - ошибка коллизии токена.
 	ErrRefreshTokenCollision = errors.New("refresh token collision, try again")
+	// ErrInvalidEmail - ошибка неверного формата почты.
+	ErrInvalidEmail = errors.New("invalid email format")
+	// ErrWeakPassword - ошибка слабого пароля.
+	ErrWeakPassword = errors.New("password is too weak")
+	// ErrEmptyPassword - ошибка пустого поля при вводе пароля.
+	ErrEmptyPassword = errors.New("password is empty")
 )
 
 // Service описывает бизнес-логику auth-сервиса.

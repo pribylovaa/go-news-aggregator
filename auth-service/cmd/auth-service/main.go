@@ -2,6 +2,7 @@ package main
 
 import (
 	"auth-service/internal/config"
+	"flag"
 	"log/slog"
 	"os"
 )
@@ -14,19 +15,16 @@ const (
 )
 
 func main() {
-	cfg := config.MustLoad()
+	var configPath string
+	flag.StringVar(&configPath, "config", "", "path to config file")
+	flag.Parse()
+
+	cfg := config.MustLoad(configPath)
 
 	log := setupLogger(cfg.Env)
+	log.Info("starting application", "env", cfg.Env)
 
-	log.Info("starting application")
-
-	// TODO: подключение к БД
-
-	// TODO: создание сервиса
-
-	// TODO: регистрация сервиса в gRPC-сервере
-
-	// TODO: запуск сервера
+	// TODO ...
 
 }
 
@@ -46,6 +44,10 @@ func setupLogger(env string) *slog.Logger {
 	case envProd:
 		log = slog.New(
 			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
+		)
+	default:
+		log = slog.New(
+			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
 		)
 	}
 
