@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -88,7 +89,7 @@ func (s *Storage) RevokeRefreshToken(ctx context.Context, hash string) (bool, er
 		RETURNING user_id
 	`
 
-	var userID string
+	var userID uuid.UUID
 	err := s.db.QueryRow(ctx, upd, hash).Scan(&userID)
 	if err == nil {
 		return true, nil

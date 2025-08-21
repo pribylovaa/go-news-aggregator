@@ -9,6 +9,10 @@ import (
 
 func WithTimeout(d time.Duration) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		if d <= 0 {
+			return handler(ctx, req)
+		}
+
 		if _, ok := ctx.Deadline(); ok {
 			return handler(ctx, req)
 		}
