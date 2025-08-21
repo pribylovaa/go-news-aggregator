@@ -2,12 +2,15 @@ package service
 
 import (
 	"auth-service/internal/models"
+	"auth-service/internal/pkg/log"
+	"auth-service/internal/pkg/redact"
 	"auth-service/internal/storage"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/mail"
 	"strings"
 	"time"
@@ -21,25 +24,56 @@ import (
 func (s *Service) RegisterUser(ctx context.Context, email, password string) (*models.TokenPair, uuid.UUID, error) {
 	const op = "service.auth.RegisterUser"
 
+	lg := log.From(ctx)
+	lg.Info("register_attempt",
+		slog.String("op", op),
+		slog.String("email", redact.Email(email)),
+	)
+
 	normEmail, err := validateEmail(email)
 	if err != nil {
+		lg.Warn("register_validation_failed",
+			slog.String("op", op),
+			slog.String("email", redact.Email(email)),
+			slog.String("reason", "invalid_email"),
+		)
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrInvalidEmail)
 	}
 
 	if err := validatePassword(password); err != nil {
+		lg.Warn("register_validation_failed",
+			slog.String("op", op),
+			slog.String("email", redact.Email(normEmail)),
+			slog.String("reason", err.Error()),
+		)
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	_, err = s.storage.UserByEmail(ctx, normEmail)
 	if err == nil {
+		lg.Warn("register_email_taken",
+			slog.String("op", op),
+			slog.String("email", redact.Email(normEmail)),
+		)
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrEmailTaken)
 	}
+
 	if !errors.Is(err, storage.ErrNotFound) {
+		lg.Error("register_lookup_failed",
+			slog.String("op", op),
+			slog.String("email", redact.Email(normEmail)),
+			slog.String("err", err.Error()),
+		)
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	hashedPassword, err := hashPassword(password)
 	if err != nil {
+		lg.Error("hash_password_failed",
+			slog.String("op", op),
+			slog.String("email", redact.Email(normEmail)),
+			slog.String("err", err.Error()),
+		)
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -53,67 +87,178 @@ func (s *Service) RegisterUser(ctx context.Context, email, password string) (*mo
 
 	if err := s.storage.SaveUser(ctx, user); err != nil {
 		if errors.Is(err, storage.ErrAlreadyExists) {
+			lg.Warn("register_email_taken",
+				slog.String("op", op),
+				slog.String("email", redact.Email(normEmail)),
+			)
 			return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrEmailTaken)
 		}
 
+		lg.Error("save_user_failed",
+			slog.String("op", op),
+			slog.String("email", redact.Email(normEmail)),
+			slog.String("err", err.Error()),
+		)
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return s.issueTokenPair(ctx, user, "")
+	lg.Info("user_created",
+		slog.String("op", op),
+		slog.String("user_id", user.ID.String()),
+		slog.String("email", redact.Email(user.Email)),
+	)
+
+	tokenPair, uid, err := s.issueTokenPair(ctx, user, "")
+	if err != nil {
+		lg.Error("issue_token_pair_failed",
+			slog.String("op", op),
+			slog.String("user_id", user.ID.String()),
+			slog.String("err", err.Error()),
+		)
+		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	lg.Info("register_ok",
+		slog.String("op", op),
+		slog.String("user_id", uid.String()),
+	)
+
+	return tokenPair, uid, nil
 }
 
 // LoginUser выполняет вход по email+пароль.
 func (s *Service) LoginUser(ctx context.Context, email, password string) (*models.TokenPair, uuid.UUID, error) {
 	const op = "service.auth.LoginUser"
 
+	lg := log.From(ctx)
+	lg.Info("login_attempt",
+		slog.String("op", op),
+		slog.String("email", redact.Email(email)),
+	)
+
 	normEmail, err := validateEmail(email)
 	if err != nil {
+		lg.Warn("login_failed",
+			slog.String("op", op),
+			slog.String("email", redact.Email(email)),
+			slog.String("reason", "invalid_email"),
+		)
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 	}
 
 	if len(password) == 0 {
+		lg.Warn("login_failed",
+			slog.String("op", op),
+			slog.String("email", redact.Email(normEmail)),
+			slog.String("reason", "empty_password"),
+		)
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 	}
 
 	user, err := s.storage.UserByEmail(ctx, normEmail)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
+			lg.Warn("login_failed",
+				slog.String("op", op),
+				slog.String("email", redact.Email(normEmail)),
+				slog.String("reason", "user_not_found"),
+			)
 			return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 		}
 
+		lg.Error("login_lookup_failed",
+			slog.String("op", op),
+			slog.String("email", redact.Email(normEmail)),
+			slog.String("err", err.Error()),
+		)
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	if !checkPassword(user.PasswordHash, password) {
+		lg.Warn("login_failed",
+			slog.String("op", op),
+			slog.String("email", redact.Email(normEmail)),
+			slog.String("reason", "wrong_password"),
+		)
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 	}
 
-	return s.issueTokenPair(ctx, user, "")
+	tokenPair, uid, err := s.issueTokenPair(ctx, user, "")
+	if err != nil {
+		lg.Error("issue_token_pair_failed",
+			slog.String("op", op),
+			slog.String("user_id", user.ID.String()),
+			slog.String("err", err.Error()),
+		)
+		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	lg.Info("login_ok",
+		slog.String("op", op),
+		slog.String("user_id", uid.String()),
+	)
+
+	return tokenPair, uid, nil
 }
 
 // RefreshToken обновляет пару токенов по refresh-токену.
 func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*models.TokenPair, uuid.UUID, error) {
 	const op = "service.auth.RefreshToken"
 
+	lg := log.From(ctx)
+
 	token, err := s.validateRefreshToken(ctx, refreshToken)
 	if err != nil {
+		if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrTokenExpired) || errors.Is(err, ErrTokenRevoked) {
+			lg.Warn("refresh_invalid",
+				slog.String("op", op),
+				slog.String("reason", err.Error()),
+			)
+		} else {
+			lg.Error("refresh_lookup_failed",
+				slog.String("op", op),
+				slog.String("err", err.Error()),
+			)
+		}
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	user, err := s.storage.UserByID(ctx, token.UserID)
 	if err != nil {
+		lg.Error("refresh_user_lookup_failed",
+			slog.String("op", op),
+			slog.String("user_id", token.UserID.String()),
+			slog.String("err", err.Error()),
+		)
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	hashBytes := sha256.Sum256([]byte(refreshToken))
 	hash := base64.RawURLEncoding.EncodeToString(hashBytes[:])
 
-	return s.issueTokenPair(ctx, user, hash)
+	tokenPair, uid, err := s.issueTokenPair(ctx, user, hash)
+	if err != nil {
+		lg.Error("issue_token_pair_failed",
+			slog.String("op", op),
+			slog.String("user_id", user.ID.String()),
+			slog.String("err", err.Error()),
+		)
+		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	lg.Info("refresh_ok",
+		slog.String("op", op),
+		slog.String("user_id", uid.String()),
+	)
+
+	return tokenPair, uid, nil
 }
 
 // RevokeToken отзывает refresh-токен.
 func (s *Service) RevokeToken(ctx context.Context, refreshToken string) error {
 	const op = "service.auth.RevokeToken"
+
+	lg := log.From(ctx)
 
 	hashBytes := sha256.Sum256([]byte(refreshToken))
 	hash := base64.RawURLEncoding.EncodeToString(hashBytes[:])
@@ -121,15 +266,29 @@ func (s *Service) RevokeToken(ctx context.Context, refreshToken string) error {
 	revoked, err := s.storage.RevokeRefreshToken(ctx, hash)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
+			lg.Warn("revoke_invalid",
+				slog.String("op", op),
+			)
 			return fmt.Errorf("%s: %w", op, ErrInvalidToken)
 		}
 
+		lg.Error("revoke_error",
+			slog.String("op", op),
+			slog.String("err", err.Error()),
+		)
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	if !revoked {
+		lg.Warn("revoke_already",
+			slog.String("op", op),
+		)
 		return fmt.Errorf("%s: %w", op, ErrTokenRevoked)
 	}
+
+	lg.Info("revoke_ok",
+		slog.String("op", op),
+	)
 
 	return nil
 }
@@ -138,10 +297,28 @@ func (s *Service) RevokeToken(ctx context.Context, refreshToken string) error {
 func (s *Service) ValidateToken(ctx context.Context, accessToken string) (uuid.UUID, string, error) {
 	const op = "service.auth.ValidateToken"
 
+	lg := log.From(ctx)
+
 	uid, email, err := s.validateAccessToken(accessToken)
 	if err != nil {
+		if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrTokenExpired) {
+			lg.Warn("validate_failed",
+				slog.String("op", op),
+				slog.String("reason", err.Error()),
+			)
+		} else {
+			lg.Error("validate_error",
+				slog.String("op", op),
+				slog.String("err", err.Error()),
+			)
+		}
 		return uuid.Nil, "", fmt.Errorf("%s: %w", op, err)
 	}
+
+	lg.Info("validate_ok",
+		slog.String("op", op),
+		slog.String("user_id", uid.String()),
+	)
 
 	return uid, email, nil
 }
@@ -220,8 +397,13 @@ func (s *Service) issueTokenPair(ctx context.Context, user *models.User, oldRefr
 
 	now := time.Now().UTC()
 
-	accessToken, err := s.generateAccessToken(user.ID, user.Email, now)
+	accessToken, err := s.generateAccessToken(ctx, user.ID, user.Email, now)
 	if err != nil {
+		log.From(ctx).Error("access_token_generate_failed",
+			slog.String("op", op),
+			slog.String("user_id", user.ID.String()),
+			slog.String("err", err.Error()),
+		)
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -229,19 +411,37 @@ func (s *Service) issueTokenPair(ctx context.Context, user *models.User, oldRefr
 		revoked, err := s.storage.RevokeRefreshToken(ctx, oldRefreshHash)
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
+				log.From(ctx).Warn("rotate_old_refresh_not_found",
+					slog.String("op", op),
+					slog.String("user_id", user.ID.String()),
+				)
 				return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrInvalidToken)
 			}
 
+			log.From(ctx).Error("rotate_old_refresh_failed",
+				slog.String("op", op),
+				slog.String("user_id", user.ID.String()),
+				slog.String("err", err.Error()),
+			)
 			return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 		}
 
 		if !revoked {
+			log.From(ctx).Warn("rotate_old_refresh_already_revoked",
+				slog.String("op", op),
+				slog.String("user_id", user.ID.String()),
+			)
 			return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrTokenRevoked)
 		}
 	}
 
 	plain, err := s.generateRefreshToken(ctx, user.ID)
 	if err != nil {
+		log.From(ctx).Error("refresh_token_generate_failed",
+			slog.String("op", op),
+			slog.String("user_id", user.ID.String()),
+			slog.String("err", err.Error()),
+		)
 		return nil, uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
 

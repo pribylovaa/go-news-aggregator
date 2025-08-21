@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log/slog"
 	"os"
+	"time"
 )
 
 // Константы для определения окружения.
@@ -22,6 +23,11 @@ func main() {
 	cfg := config.MustLoad(configPath)
 
 	log := setupLogger(cfg.Env)
+	log = log.With(
+		slog.String("service", "auth-service"),
+		slog.String("env", cfg.Env),
+		slog.Time("started_at", time.Now().UTC()),
+	)
 	log.Info("starting application", "env", cfg.Env)
 
 	// TODO ...

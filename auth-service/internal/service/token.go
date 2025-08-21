@@ -2,6 +2,7 @@ package service
 
 import (
 	"auth-service/internal/models"
+	"auth-service/internal/pkg/log"
 	"auth-service/internal/storage"
 	"context"
 	"crypto/rand"
@@ -9,6 +10,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -22,7 +24,11 @@ type accessClaims struct {
 }
 
 // generateAccessToken генерирует access-токен.
-func (s *Service) generateAccessToken(userID uuid.UUID, email string, now time.Time) (string, error) {
+func (s *Service) generateAccessToken(ctx context.Context, userID uuid.UUID, email string, now time.Time) (string, error) {
+	const op = "service.token.generateAccessToken"
+
+	lg := log.From(ctx)
+
 	claims := accessClaims{
 		UserID: userID.String(),
 		Email:  email,
@@ -36,7 +42,16 @@ func (s *Service) generateAccessToken(userID uuid.UUID, email string, now time.T
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(s.cfg.JWTSecret))
+	signed, err := token.SignedString([]byte(s.cfg.JWTSecret))
+	if err != nil {
+		lg.Error("access_token_sign_failed",
+			slog.String("op", op),
+			slog.String("err", err.Error()),
+		)
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+
+	return signed, nil
 }
 
 // validateAccessToken валидирует access-токен.
@@ -45,7 +60,7 @@ func (s *Service) validateAccessToken(tokenStr string) (uuid.UUID, string, error
 
 	token, err := jwt.ParseWithClaims(tokenStr, &accessClaims{},
 		func(t *jwt.Token) (interface{}, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			if t.Method != jwt.SigningMethodHS256 {
 				return nil, fmt.Errorf("%s: %w", op, ErrInvalidToken)
 			}
 
@@ -85,9 +100,15 @@ func (s *Service) generateRefreshToken(ctx context.Context, userID uuid.UUID) (s
 		maxAttempts = 5
 	)
 
+	lg := log.From(ctx)
+
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		b := make([]byte, 32)
 		if _, err := rand.Read(b); err != nil {
+			lg.Error("refresh_rand_failed",
+				slog.String("op", op),
+				slog.String("err", err.Error()),
+			)
 			return "", fmt.Errorf("%s: %w", op, err)
 		}
 		plain := base64.RawURLEncoding.EncodeToString(b)
@@ -110,11 +131,19 @@ func (s *Service) generateRefreshToken(ctx context.Context, userID uuid.UUID) (s
 				continue
 			}
 
+			lg.Error("save_refresh_token_failed",
+				slog.String("op", op),
+				slog.String("err", err.Error()),
+			)
 			return "", fmt.Errorf("%s: %w", op, err)
 		}
 
 		return plain, nil
 	}
+
+	lg.Error("refresh_collision_exceeded",
+		slog.String("op", op),
+	)
 
 	return "", fmt.Errorf("%s: %w", op, ErrRefreshTokenCollision)
 }
@@ -123,23 +152,40 @@ func (s *Service) generateRefreshToken(ctx context.Context, userID uuid.UUID) (s
 func (s *Service) validateRefreshToken(ctx context.Context, plain string) (*models.RefreshToken, error) {
 	const op = "service.token.validateRefreshToken"
 
+	lg := log.From(ctx)
+
 	hashBytes := sha256.Sum256([]byte(plain))
 	hash := base64.RawURLEncoding.EncodeToString(hashBytes[:])
 
 	token, err := s.storage.RefreshTokenByHash(ctx, hash)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
+			lg.Warn("refresh_lookup_not_found",
+				slog.String("op", op),
+			)
 			return nil, fmt.Errorf("%s: %w", op, ErrInvalidToken)
 		}
 
+		lg.Error("refresh_lookup_failed",
+			slog.String("op", op),
+			slog.String("err", err.Error()),
+		)
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	if token.Revoked {
+		lg.Warn("refresh_revoked",
+			slog.String("op", op),
+			slog.String("user_id", token.UserID.String()),
+		)
 		return nil, fmt.Errorf("%s: %w", op, ErrTokenRevoked)
 	}
 
 	if time.Now().UTC().After(token.ExpiresAt) {
+		lg.Warn("refresh_expired",
+			slog.String("op", op),
+			slog.String("user_id", token.UserID.String()),
+		)
 		return nil, fmt.Errorf("%s: %w", op, ErrTokenExpired)
 	}
 
