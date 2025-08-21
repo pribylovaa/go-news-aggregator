@@ -118,12 +118,17 @@ func (s *Service) RevokeToken(ctx context.Context, refreshToken string) error {
 	hashBytes := sha256.Sum256([]byte(refreshToken))
 	hash := base64.RawURLEncoding.EncodeToString(hashBytes[:])
 
-	if err := s.storage.RevokeRefreshToken(ctx, hash); err != nil {
+	revoked, err := s.storage.RevokeRefreshToken(ctx, hash)
+	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			return fmt.Errorf("%s: %w", op, ErrInvalidToken)
 		}
 
 		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if !revoked {
+		return fmt.Errorf("%s: %w", op, ErrTokenRevoked)
 	}
 
 	return nil
@@ -221,7 +226,7 @@ func (s *Service) issueTokenPair(ctx context.Context, user *models.User, oldRefr
 	}
 
 	if oldRefreshHash != "" {
-		revoked, err := s.storage.RevokeRefreshTokenIfActive(ctx, oldRefreshHash)
+		revoked, err := s.storage.RevokeRefreshToken(ctx, oldRefreshHash)
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
 				return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrInvalidToken)

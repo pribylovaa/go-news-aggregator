@@ -72,37 +72,14 @@ func (s *Storage) RefreshTokenByHash(ctx context.Context, hash string) (*models.
 	return &token, nil
 }
 
-// RevokeRefreshToken помечает токен как отозванный.
-func (s *Storage) RevokeRefreshToken(ctx context.Context, hash string) error {
-	const op = "storage.postgres.RevokeRefreshToken"
-
-	query := `
-        UPDATE refresh_tokens
-        SET revoked = TRUE
-        WHERE token_hash = $1
-    `
-
-	cmdTag, err := s.db.Exec(ctx, query, hash)
-
-	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
-	}
-
-	if cmdTag.RowsAffected() == 0 {
-		return fmt.Errorf("%s: %w", op, storage.ErrNotFound)
-	}
-
-	return nil
-}
-
-// RevokeRefreshTokenIfActive пытается отозвать refresh-токен, если он ещё не был отозван.
+// RevokeRefreshToken пытается отозвать refresh-токен, если он ещё не был отозван.
 // Возвращает:
 //
 //	(true, nil)  — токен был активен и успешно отозван сейчас;
 //	(false, nil) — токен существует, но уже был отозван;
 //	(false, ErrNotFound) — токен не найден.
-func (s *Storage) RevokeRefreshTokenIfActive(ctx context.Context, hash string) (bool, error) {
-	const op = "storage.postgres.RevokeRefreshTokenIfActive"
+func (s *Storage) RevokeRefreshToken(ctx context.Context, hash string) (bool, error) {
+	const op = "storage.postgres.RevokeRefreshToken"
 
 	const upd = `
 		UPDATE refresh_tokens
