@@ -17,12 +17,19 @@ func Recover(base *slog.Logger) grpc.UnaryServerInterceptor {
 		defer func() {
 			if r := recover(); r != nil {
 				l := log.From(ctx)
+
+				if l == slog.Default() && base != nil {
+					l = base
+				}
+
 				l.Error("panic recovered",
 					slog.String("method", info.FullMethod),
 					slog.Any("panic", r),
 					slog.String("stack", string(debug.Stack())),
 				)
+
 				err = status.Error(codes.Internal, "internal server error")
+				resp = nil
 			}
 		}()
 
