@@ -349,11 +349,12 @@ func validateEmail(raw string) (string, error) {
 		return "", fmt.Errorf("%s: %w", op, ErrInvalidEmail)
 	}
 
-	if _, err := mail.ParseAddress(email); err != nil {
+	addr, err := mail.ParseAddress(email)
+	if err != nil {
 		return "", fmt.Errorf("%s: %w", op, ErrInvalidEmail)
 	}
 
-	return strings.ToLower(email), nil
+	return strings.ToLower(addr.Address), nil
 }
 
 // validatePassword проверяет минимальные требования к паролю.
