@@ -1,40 +1,58 @@
+// config предоставляет структуру конфигурации сервиса и функции
+// загрузки из файла/переменных окружения с предсказуемым приоритетом.
 package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
+// Config — корневая конфигурация сервиса.
+// Источники значений (по убыванию приоритета):
+//  1. явный путь через флаг --config;
+//  2. путь в переменной окружения CONFIG_PATH;
+//  3. файл .yaml из рабочей директории;
+//  4. переменные окружения (cleanenv).
 type Config struct {
-	Env      string        `yaml:"env" env-default:"local"`
+	Env      string        `yaml:"env" env:"ENV" env-default:"local"`
 	GRPC     GRPCConfig    `yaml:"grpc"`
 	Auth     AuthConfig    `yaml:"auth"`
 	DB       DBConfig      `yaml:"db"`
 	Timeouts TimeoutConfig `yaml:"timeouts"`
 }
 
+// TimeoutConfig — таймауты сервиса.
 type TimeoutConfig struct {
-	Service time.Duration `yaml:"service" env-default:"5s"`
+	Service time.Duration `yaml:"service" env:"SERVICE" env-default:"5s"`
 }
 
+// GRPCConfig описывает сетевые настройки gRPC-сервера.
 type GRPCConfig struct {
-	Host string `yaml:"host" env-default:"0.0.0.0"`
-	Port string `yaml:"port" env-default:"50051"`
+	Host string `yaml:"host" env:"HOST" env-default:"0.0.0.0"`
+	Port string `yaml:"port" env:"PORT" env-default:"50051"`
 }
 
+// Addr возвращает адрес в формате host:port.
+func (g GRPCConfig) Addr() string {
+	return net.JoinHostPort(g.Host, g.Port)
+}
+
+// AuthConfig содержит параметры выпуска и валидации токенов.
 type AuthConfig struct {
-	JWTSecret       string        `yaml:"jwt_secret" env-required:"true"`
-	AccessTokenTTL  time.Duration `yaml:"access_token_ttl" env-default:"15m"`
-	RefreshTokenTTL time.Duration `yaml:"refresh_token_ttl" env-default:"720h"`
-	Issuer          string        `yaml:"issuer"   env-default:"auth-service"`
-	Audience        []string      `yaml:"audience" env-default:"api-gateway"`
+	JWTSecret       string        `yaml:"jwt_secret" env:"JWT_SECRET" env-required:"true"`
+	AccessTokenTTL  time.Duration `yaml:"access_token_ttl" env:"ACCESS_TOKEN_TTL" env-default:"15m"`
+	RefreshTokenTTL time.Duration `yaml:"refresh_token_ttl" env:"REFRESH_TOKEN_TTL" env-default:"720h"`
+	Issuer          string        `yaml:"issuer"   env:"ISSUER" env-default:"auth-service"`
+	Audience        []string      `yaml:"audience" env:"AUDIENCE" env-default:"api-gateway"`
 }
 
+// DBConfig — настройки подключения к базе данных.
 type DBConfig struct {
-	DatabaseURL string `yaml:"db_url" env-required:"true"`
+	DatabaseURL string `yaml:"db_url" env:"DATABASE_URL" env-required:"true"`
 }
 
 // MustLoad — обёртка над Load с panic при ошибке.
@@ -48,10 +66,10 @@ func MustLoad(path string) *Config {
 }
 
 // Load загружает конфигурацию по приоритету:
-// 1) явный путь (аргумент функции, передаётся из main через флаг --config);
-// 2) переменная окружения CONFIG_PATH;
-// 3) файл ./local.yaml (удобный дефолт для dev);
-// 4) иначе - только из переменных окружения.
+// 1. явный путь (аргумент функции, передаётся из main через флаг --config);
+// 2. переменная окружения CONFIG_PATH;
+// 3. файл ./local.yaml;
+// 4. иначе - из переменных окружения.
 func Load(path string) (*Config, error) {
 	var cfg Config
 
