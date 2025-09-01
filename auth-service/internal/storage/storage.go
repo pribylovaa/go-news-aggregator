@@ -1,3 +1,5 @@
+// storage определяет контракты доступа к хранилищу данных для auth-сервиса.
+// В storage.go описаны интерфейсы уровня репозитория и общие для всех реализаций инварианты.
 package storage
 
 import (
@@ -10,17 +12,20 @@ import (
 )
 
 var (
-	// ErrNotFound — запись не найдена (пользователь/токен).
+	// ErrNotFound возвращается, когда сущность отсутствует в хранилище
+	// (например, пользователь с заданным email/ID или refresh-токен по хэшу).
 	ErrNotFound = errors.New("not found")
-	// ErrAlreadyExists — нарушение уникальности (email/refresh-token).
+
+	// ErrAlreadyExists возвращается при нарушении ограничений уникальности
+	// (например, email пользователя или хэш refresh-токена уже заняты).
 	ErrAlreadyExists = errors.New("already exists")
-	// ErrExpired — сущность просрочена (refresh-token).
-	ErrExpired = errors.New("expired")
-	// ErrRevoked — сущность отозвана (refresh-token).
-	ErrRevoked = errors.New("revoked")
 )
 
-// UserStorage выполняет операции над пользователями.
+// UserStorage описывает операции над сущностью models.User.
+//
+// Ожидаемое поведение:
+//   - SaveUser: создаёт нового пользователя. При конфликте уникальности возвращает ErrAlreadyExists.
+//   - UserByEmail/UserByID: возвращают ErrNotFound, если пользователь не найден.
 type UserStorage interface {
 	// SaveUser создает нового пользователя в БД.
 	SaveUser(ctx context.Context, user *models.User) error
@@ -30,19 +35,27 @@ type UserStorage interface {
 	UserByID(ctx context.Context, id uuid.UUID) (*models.User, error)
 }
 
-// RefreshTokenStorage выполняет операции над refresh-токенами.
+// RefreshTokenStorage описывает операции над refresh-токенами.
+//
+// Ожидаемое поведение:
+//   - SaveRefreshToken: создаёт запись о токене; при конфликте уникальности по хэшу — ErrAlreadyExists.
+//   - RefreshTokenByHash: возвращает токен или ErrNotFound — истечение срока/ревокация не конвертируются в ошибку.
+//   - RevokeRefreshToken: если токен активен — помечает как отозванный и возвращает (true, nil);
+//     если токен уже отозван — (false, nil); если токен не найден — (false, ErrNotFound).
+//   - DeleteExpiredTokens: удаляет все токены с истёкшим сроком (ExpiresAt <= now);
+//     рекомендуется передавать now в UTC.
 type RefreshTokenStorage interface {
 	// SaveRefreshToken сохраняет новый refresh-token в БД.
 	SaveRefreshToken(ctx context.Context, token *models.RefreshToken) error
 	// RefreshTokenByHash находит refresh-токен по его хэшу.
 	RefreshTokenByHash(ctx context.Context, hash string) (*models.RefreshToken, error)
-	// RevokeRefreshToken пытается отозвать refresh-токен.
+	// RevokeRefreshToken отзывает refresh-токен.
 	RevokeRefreshToken(ctx context.Context, hash string) (bool, error)
-	// DeleteExpiredTokens удаляет все просроченные токены.
+	// DeleteExpiredTokens удаляет все просроченные токены на момент now.
 	DeleteExpiredTokens(ctx context.Context, now time.Time) error
 }
 
-// Storage задает контракт работы с БД.
+// Storage задаёт контракт доступа к хранилищу для auth-сервиса.
 type Storage interface {
 	UserStorage
 	RefreshTokenStorage

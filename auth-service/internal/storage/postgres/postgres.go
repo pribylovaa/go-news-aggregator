@@ -1,3 +1,4 @@
+// postgres предоставляет реализацию storage.Storage на базе PostgreSQL.
 package postgres
 
 import (
@@ -12,7 +13,7 @@ type Storage struct {
 	db *pgxpool.Pool
 }
 
-// New создает новое подключение к PostgreSQL.
+// New создает и инициализирует пул соединений к PostgreSQL.
 func New(ctx context.Context, dbURL string) (*Storage, error) {
 	const op = "storage.postgres.New"
 
@@ -35,9 +36,10 @@ func New(ctx context.Context, dbURL string) (*Storage, error) {
 }
 
 // Close закрывает пул соединений.
+// Должен вызываться при остановке приложения.
 func (s *Storage) Close() {
 	s.db.Close()
 }
 
-// Проверка на соответствие интерфейсу Storage.
+// Проверка выполнения контракта верхнего уровня.
 var _ storage.Storage = (*Storage)(nil)

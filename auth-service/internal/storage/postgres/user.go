@@ -13,7 +13,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// SaveUser создает нового пользователя в БД.
+// SaveUser сохраняет нового пользователя в таблице users.
+//
+// Контракт:
+//   - При нарушении уникальности email возвращает storage.ErrAlreadyExists.
+//   - Поля user должны быть валидированы на верхнем уровне (ID, Email, PasswordHash, таймстемпы).
 func (s *Storage) SaveUser(ctx context.Context, user *models.User) error {
 	const op = "storage.postgres.SaveUser"
 
@@ -31,6 +35,7 @@ func (s *Storage) SaveUser(ctx context.Context, user *models.User) error {
 	)
 
 	if err != nil {
+		// маппинг конфликтов уникальности (CITEXT UNIQUE по email).
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 			return fmt.Errorf("%s: %w", op, storage.ErrAlreadyExists)
@@ -42,7 +47,11 @@ func (s *Storage) SaveUser(ctx context.Context, user *models.User) error {
 	return nil
 }
 
-// UserByEmail находит пользователя по email.
+// UserByEmail возвращает пользователя по email.
+//
+// Контракт:
+//   - Возвращает storage.ErrNotFound, если записи нет.
+//   - Столбец email имеет тип CITEXT, поиск регистронезависим.
 func (s *Storage) UserByEmail(ctx context.Context, email string) (*models.User, error) {
 	const op = "storage.postgres.UserByEmail"
 
@@ -72,7 +81,10 @@ func (s *Storage) UserByEmail(ctx context.Context, email string) (*models.User, 
 	return &user, nil
 }
 
-// UserByID находит пользователя по ID.
+// UserByID возвращает пользователя по идентификатору.
+//
+// Контракт:
+//   - Возвращает storage.ErrNotFound, если записи нет.
 func (s *Storage) UserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	const op = "storage.postgres.UserByID"
 

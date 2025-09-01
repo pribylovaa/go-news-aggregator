@@ -14,7 +14,12 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// SaveRefreshToken сохраняет новый refresh-токен в БД.
+// SaveRefreshToken сохраняет новую запись о refresh-токене.
+//
+// Контракт:
+//   - При нарушении уникальности (token_hash UNIQUE) возвращает storage.ErrAlreadyExists.
+//   - Прочие ошибки драйвера/контекста возвращаются с обёрткой через %w.
+//   - Значения временных полей должны быть в UTC (CreatedAt/ExpiresAt).
 func (s *Storage) SaveRefreshToken(ctx context.Context, token *models.RefreshToken) error {
 	const op = "storage.postgres.SaveRefreshToken"
 
@@ -43,7 +48,11 @@ func (s *Storage) SaveRefreshToken(ctx context.Context, token *models.RefreshTok
 	return nil
 }
 
-// RefreshTokenByHash находит refresh-токен по его хэшу.
+// RefreshTokenByHash возвращает refresh-токен по его хэшу.
+//
+// Контракт:
+//   - Если запись отсутствует, возвращается storage.ErrNotFound.
+//   - Факт отзыва/истечения срока кодируется в полях модели (Revoked/ExpiresAt) и не конвертируется в ошибку.
 func (s *Storage) RefreshTokenByHash(ctx context.Context, hash string) (*models.RefreshToken, error) {
 	const op = "storage.postgres.RefreshTokenByHash"
 
@@ -73,12 +82,14 @@ func (s *Storage) RefreshTokenByHash(ctx context.Context, hash string) (*models.
 	return &token, nil
 }
 
-// RevokeRefreshToken пытается отозвать refresh-токен, если он ещё не был отозван.
-// Возвращает:
+// RevokeRefreshToken помечает токен отозванным, если он ещё активен.
 //
-//	(true, nil)  — токен был активен и успешно отозван сейчас;
-//	(false, nil) — токен существует, но уже был отозван;
-//	(false, ErrNotFound) — токен не найден.
+// Возвращаемые значения:
+//   - (true, nil)  — токен был активен и успешно отозван сейчас;
+//   - (false, nil) — токен существует, но уже был отозван ранее;
+//   - (false, storage.ErrNotFound) — токен отсутствует.
+//
+// Прочие ошибки драйвера/контекста возвращаются с обёрткой через %w.
 func (s *Storage) RevokeRefreshToken(ctx context.Context, hash string) (bool, error) {
 	const op = "storage.postgres.RevokeRefreshToken"
 
@@ -117,7 +128,10 @@ func (s *Storage) RevokeRefreshToken(ctx context.Context, hash string) (bool, er
 	return false, nil
 }
 
-// DeleteExpiredTokens удаляет все просроченные токены.
+// DeleteExpiredTokens удаляет все токены, срок действия которых истёк
+// на момент времени now (условие expires_at <= now).
+//
+// Рекомендация: передавать now в UTC для согласованности с серверной зоной времени.
 func (s *Storage) DeleteExpiredTokens(ctx context.Context, now time.Time) error {
 	const op = "storage.postgres.DeleteExpiredTokens"
 
