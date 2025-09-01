@@ -1,3 +1,5 @@
+// models содержит доменные сущности auth-сервиса.
+// Эти типы используются слоями бизнес-логики, хранилища и транспорта.
 package models
 
 import (
@@ -6,11 +8,23 @@ import (
 	"github.com/google/uuid"
 )
 
-// User - модель пользователя в системе.
+// User представляет зарегистрированного пользователя.
+//
+// Описание:
+//   - ID — UUIDv4, генерируется на уровне сервиса/БД;
+//   - Email — нормализуется до нижнего регистра в сервисе и уникален в БД
+//     (CITEXT UNIQUE; сравнение регистронезависимо, хранится исходный регистр);
+//   - PasswordHash — результат безопасного хэширования (bcrypt);
+//   - Временные метки — в UTC.
 type User struct {
-	ID           uuid.UUID
-	Email        string
+	// ID — уникальный идентификатор пользователя.
+	ID uuid.UUID
+	// Email — уникальный адрес электронной почты (нормализованный до нижнего регистра).
+	Email string
+	// PasswordHash — хэш пароля (сырой пароль нигде не хранится).
 	PasswordHash string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	// CreatedAt — время создания записи (UTC).
+	CreatedAt time.Time
+	// UpdatedAt — время последнего изменения записи (UTC).
+	UpdatedAt time.Time
 }
