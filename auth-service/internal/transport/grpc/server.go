@@ -68,7 +68,7 @@ func (s *AuthServer) RefreshToken(ctx context.Context, req *authv1.RefreshTokenR
 
 	tokenPair, uid, err := s.service.RefreshToken(ctx, req.GetRefreshToken())
 	if err != nil {
-		if errors.Is(err, service.ErrInvalidToken) || errors.Is(err, service.ErrTokenExpired) {
+		if errors.Is(err, service.ErrInvalidToken) || errors.Is(err, service.ErrTokenExpired) || errors.Is(err, service.ErrTokenRevoked) {
 			return nil, status.Errorf(codes.Unauthenticated, "%s: %v", op, err)
 		}
 
