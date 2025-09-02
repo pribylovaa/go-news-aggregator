@@ -1,3 +1,6 @@
+// interceptors предоставляет набор gRPC-интерсепторов для серверной стороны.
+//
+// timeout.go реализует интерсептор таймаута для unary-вызовов.
 package interceptors
 
 import (
@@ -7,6 +10,19 @@ import (
 	"google.golang.org/grpc"
 )
 
+// WithTimeout возвращает unary-интерсептор, который навешивает таймаут d на контекст
+// запроса при его отсутствии. Существующий дедлайн не переопределяется.
+//
+// Контракт:
+//  1. d <= 0 — возвращает результат handler без изменения контекста;
+//  2. deadline уже задан во входящем ctx — не модифицирует его;
+//  3. иначе — оборачивает ctx через context.WithTimeout(ctx, d), гарантированно
+//     вызывает cancel() и передаёт обёрнутый ctx в handler.
+//
+// Ошибки:
+//
+//	По истечении дедлайна handler обычно возвращает context.DeadlineExceeded;
+//	gRPC-рантайм транслирует это в codes.DeadlineExceeded.
 func WithTimeout(d time.Duration) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		if d <= 0 {
@@ -18,8 +34,8 @@ func WithTimeout(d time.Duration) grpc.UnaryServerInterceptor {
 		}
 
 		ctx, cancel := context.WithTimeout(ctx, d)
-
 		defer cancel()
+
 		return handler(ctx, req)
 	}
 }

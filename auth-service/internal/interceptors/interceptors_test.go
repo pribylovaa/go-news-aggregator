@@ -1,6 +1,8 @@
+// file: /mnt/data/interceptors_test.go
 package interceptors
 
 import (
+	"auth-service/internal/pkg/log"
 	"context"
 	"log/slog"
 	"net"
@@ -16,11 +18,16 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Пакет unit-тестов для internal/interceptors (timeout.go, recover.go, logging.go).
+
+// capHandler — минимальный slog.Handler для захвата последней записи
+// и всех атрибутов. Дополнительно ведёт счётчик сообщений по тексту.
 type capHandler struct {
 	base    []slog.Attr
 	lastMsg string
 	lastLvl slog.Level
 	attrs   map[string]any
+	count   map[string]int
 }
 
 func (h *capHandler) Enabled(context.Context, slog.Level) bool { return true }
@@ -30,12 +37,14 @@ func (h *capHandler) Handle(_ context.Context, r slog.Record) error {
 	for _, a := range h.base {
 		out[a.Key] = a.Value.Any()
 	}
-
 	r.Attrs(func(a slog.Attr) bool {
 		out[a.Key] = a.Value.Any()
 		return true
 	})
-
+	if h.count == nil {
+		h.count = make(map[string]int)
+	}
+	h.count[r.Message]++
 	h.lastMsg = r.Message
 	h.lastLvl = r.Level
 	h.attrs = out
@@ -49,7 +58,11 @@ func (h *capHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 
 func (h *capHandler) WithGroup(string) slog.Handler { return h }
 
+// TestUnaryLoggingInterceptor_Success_WithRequestID —
+// happy-path: берёт x-request-id из metadata, логирует метод/peer/код/длительность.
 func TestUnaryLoggingInterceptor_Success_WithRequestID(t *testing.T) {
+	t.Parallel()
+
 	h := &capHandler{}
 	logger := slog.New(h)
 
@@ -71,7 +84,6 @@ func TestUnaryLoggingInterceptor_Success_WithRequestID(t *testing.T) {
 
 	require.Equal(t, "grpc", h.lastMsg)
 	require.Equal(t, slog.LevelInfo, h.lastLvl)
-
 	require.Equal(t, "rid-123", h.attrs["request_id"])
 	require.Equal(t, info.FullMethod, h.attrs["method"])
 	require.Equal(t, "127.0.0.1:50051", h.attrs["peer"])
@@ -84,7 +96,11 @@ func TestUnaryLoggingInterceptor_Success_WithRequestID(t *testing.T) {
 	}
 }
 
+// TestUnaryLoggingInterceptor_GeneratesUUID_And_LogsErrorCode —
+// без x-request-id генерируется UUID; код ошибки берётся из status.
 func TestUnaryLoggingInterceptor_GeneratesUUID_And_LogsErrorCode(t *testing.T) {
+	t.Parallel()
+
 	h := &capHandler{}
 	logger := slog.New(h)
 
@@ -105,7 +121,58 @@ func TestUnaryLoggingInterceptor_GeneratesUUID_And_LogsErrorCode(t *testing.T) {
 	require.NoError(t, parseErr)
 }
 
+// TestUnaryLoggingInterceptor_PutsLoggerIntoContext —
+// интерсептор кладёт обогащённый *slog.Logger в context (pkg/log).
+func TestUnaryLoggingInterceptor_PutsLoggerIntoContext(t *testing.T) {
+	t.Parallel()
+
+	h := &capHandler{}
+	base := slog.New(h)
+
+	md := metadata.New(map[string]string{"x-request-id": "abc"})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	info := &grpc.UnaryServerInfo{FullMethod: "/auth.AuthService/UseLogger"}
+
+	inter := UnaryLoggingInterceptor(base)
+
+	_, err := inter(ctx, "req", info, func(ctx context.Context, req any) (any, error) {
+		l := log.From(ctx)
+		l.Info("handler", slog.String("probe", "1"))
+		return "ok", nil
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, 1, h.count["handler"])
+	require.Equal(t, "grpc", h.lastMsg)
+	require.Equal(t, "abc", h.attrs["request_id"])
+	require.Equal(t, "/auth.AuthService/UseLogger", h.attrs["method"])
+}
+
+// TestUnaryLoggingInterceptor_NoPeer_SetsDash —
+// при отсутствии peer в контексте пишет "-" в лог.
+func TestUnaryLoggingInterceptor_NoPeer_SetsDash(t *testing.T) {
+	t.Parallel()
+
+	h := &capHandler{}
+	logger := slog.New(h)
+
+	md := metadata.New(map[string]string{"x-request-id": "rid"})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	info := &grpc.UnaryServerInfo{FullMethod: "/auth.AuthService/NoPeer"}
+
+	inter := UnaryLoggingInterceptor(logger)
+	_, err := inter(ctx, "req", info, func(ctx context.Context, req any) (any, error) {
+		return "ok", nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, "-", h.attrs["peer"])
+}
+
+// TestRecover_PanicToInternal_AndLogsStack —
+// паника преобразуется в codes.Internal и логируется с методом и стеком.
 func TestRecover_PanicToInternal_AndLogsStack(t *testing.T) {
+	t.Parallel()
+
 	h := &capHandler{}
 	logger := slog.New(h)
 
@@ -116,29 +183,29 @@ func TestRecover_PanicToInternal_AndLogsStack(t *testing.T) {
 		panic("boom")
 	})
 
-	// RPC-ответ.
 	require.Nil(t, resp)
 	require.Error(t, err)
 	require.Equal(t, codes.Internal, status.Code(err))
 
-	// Логи от Recover: уровень error, сообщение и атрибуты.
 	require.Equal(t, slog.LevelError, h.lastLvl)
-	require.Equal(t, "panic recovered", h.lastMsg)
+	require.Equal(t, "panic_recovered", h.lastMsg)
 
 	method, ok := h.attrs["method"].(string)
 	require.True(t, ok)
 	require.Equal(t, info.FullMethod, method)
 
-	// panic: хранится как Any — это будет "boom".
 	require.NotEmpty(t, h.attrs["panic"])
 
-	// stack: непустая строка с трассировкой.
 	stack, ok := h.attrs["stack"].(string)
 	require.True(t, ok)
 	require.NotEmpty(t, stack)
 }
 
+// TestRecover_NoPanic_PassThrough_NoLogs —
+// если паники нет — ответ passthrough, логов от Recover нет.
 func TestRecover_NoPanic_PassThrough_NoLogs(t *testing.T) {
+	t.Parallel()
+
 	h := &capHandler{}
 	logger := slog.New(h)
 
@@ -155,7 +222,11 @@ func TestRecover_NoPanic_PassThrough_NoLogs(t *testing.T) {
 	require.Equal(t, "", h.lastMsg)
 }
 
+// TestWithTimeout_SetsDeadline_AndHandlerSeesDeadlineExceeded —
+// навешивает дедлайн при его отсутствии, handler видит context.DeadlineExceeded.
 func TestWithTimeout_SetsDeadline_AndHandlerSeesDeadlineExceeded(t *testing.T) {
+	t.Parallel()
+
 	const d = 40 * time.Millisecond
 	inter := WithTimeout(d)
 
@@ -174,7 +245,11 @@ func TestWithTimeout_SetsDeadline_AndHandlerSeesDeadlineExceeded(t *testing.T) {
 	require.GreaterOrEqual(t, time.Since(start), d)
 }
 
+// TestWithTimeout_DoesNotOverrideExistingDeadline —
+// существующий дедлайн не переопределяется.
 func TestWithTimeout_DoesNotOverrideExistingDeadline(t *testing.T) {
+	t.Parallel()
+
 	parent, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
 	defer cancel()
 
@@ -201,7 +276,11 @@ func TestWithTimeout_DoesNotOverrideExistingDeadline(t *testing.T) {
 	require.WithinDuration(t, pdl, childDL, time.Millisecond)
 }
 
+// TestWithTimeout_ZeroDuration_PassThrough —
+// d<=0 -> не меняет контекст и не задаёт дедлайн.
 func TestWithTimeout_ZeroDuration_PassThrough(t *testing.T) {
+	t.Parallel()
+
 	inter := WithTimeout(0)
 
 	resp, err := inter(
