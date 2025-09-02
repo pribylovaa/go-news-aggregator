@@ -28,9 +28,6 @@ import (
 //    ошибки стораджа (lookup/user/revoke/save new refresh).
 //  - RevokeToken: маппинг ErrNotFound/уже отозван/другая ошибка/OK.
 //  - ValidateToken: валидный, невалидный, просроченный — без RPC-ошибок.
-//
-// Запуск:
-//   go test ./internal/service -v -race -count=1
 
 // testCfg — минимальная конфигурация для unit-тестов сервисного слоя.
 func testCfg() config.AuthConfig {

@@ -29,12 +29,6 @@ import (
 //     ошибки стораджа и исчерпание ретраев.
 //   - validateRefreshToken: NotFound → ErrInvalidToken, Revoked -> ErrTokenRevoked,
 //     Expired (в т.ч. граничный случай expires_at == now), и прокидывание ошибок стораджа.
-//
-// Запуск:
-//   go test ./internal/service -v -race -count=1
-//
-// Детали реализации см. token.go (HS256, строгие iss/aud, 5s leeway, refresh 32 байта base64url, sha256+base64url-хэш).
-// Это влияет на ожидания тестов (длина plain=43, URL-safe алфавит, маппинг ошибок в ErrInvalidToken/ErrTokenExpired и т.п.).
 
 // testAuthCfg — минимальная конфигурация для unit-тестов token.go
 func testAuthCfg() config.AuthConfig {

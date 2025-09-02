@@ -1,4 +1,3 @@
-// logging.go реализует логирование unary-вызовов с контекстным логгером.
 package interceptors
 
 import (

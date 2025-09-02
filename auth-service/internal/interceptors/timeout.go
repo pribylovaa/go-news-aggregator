@@ -1,6 +1,4 @@
 // interceptors предоставляет набор gRPC-интерсепторов для серверной стороны.
-//
-// timeout.go реализует интерсептор таймаута для unary-вызовов.
 package interceptors
 
 import (

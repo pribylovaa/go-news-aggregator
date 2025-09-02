@@ -1,4 +1,3 @@
-// recover.go реализует перехватчик паник для unary-вызовов.
 package interceptors
 
 import (

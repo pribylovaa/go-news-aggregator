@@ -1,4 +1,3 @@
-// file: /mnt/data/redact_test.go
 package redact
 
 import (
@@ -7,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Пакет unit-тестов для internal/pkg/redact (redact.go).
+// Пакет unit-тестов для internal/pkg/redact.go.
 //
 // Покрытие (табличные тесты):
 //   - Email: happy-path (ASCII), короткая локальная часть (≤2), отсутствие/множество '@',

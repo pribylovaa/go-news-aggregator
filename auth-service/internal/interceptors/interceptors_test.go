@@ -1,4 +1,3 @@
-// file: /mnt/data/interceptors_test.go
 package interceptors
 
 import (

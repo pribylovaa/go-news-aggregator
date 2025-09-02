@@ -1,4 +1,3 @@
-// file: /mnt/data/logctx_test.go
 package log
 
 import (
@@ -11,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Пакет тестов для internal/pkg/log (logctx.go).
+// Пакет тестов для internal/pkg/logctx.go.
 //
 // Покрытие:
 //  - From без логгера в контексте -> возвращает slog.Default();
