@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	health "google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -40,23 +42,23 @@ func main() {
 	slog.SetDefault(log)
 	log.Info("starting application", "env", cfg.Env)
 
-	// Контекст для graceful shutdown.
-	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
+	// Корневой контекст с отменой по сигналу.
+	rootCtx, rootCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer rootCancel()
 
 	// Подключение к БД c таймаутом.
 	dbCtx, dbCancel := context.WithTimeout(rootCtx, 10*time.Second)
-	st, err := postgres.New(dbCtx, cfg.DB.DatabaseURL)
+	storage, err := postgres.New(dbCtx, cfg.DB.DatabaseURL)
 	dbCancel()
 	if err != nil {
 		log.Error("postgres_connect_failed", slog.String("err", err.Error()))
 		os.Exit(1)
 	}
-	defer st.Close()
+	defer storage.Close()
 	log.Info("postgres_connected")
 
 	// Сервис.
-	svc := service.New(st, cfg.Auth)
+	service := service.New(storage, cfg.Auth)
 	log.Info("service_initialized")
 
 	// gRPC-сервер и интерсепторы.
@@ -69,20 +71,26 @@ func main() {
 	}
 	grpcServer := grpc.NewServer(grpcOpts...)
 
+	// Health-check сервис.
+	hs := health.NewServer()
+	healthpb.RegisterHealthServer(grpcServer, hs)
+
 	// Регистрация сервиса.
-	authv1.RegisterAuthServiceServer(grpcServer, auth.NewAuthServer(svc))
+	authv1.RegisterAuthServiceServer(grpcServer, auth.NewAuthServer(service))
 
 	// Рефлексия — только в local/dev.
 	if cfg.Env == envLocal || cfg.Env == envDev {
 		reflection.Register(grpcServer)
 	}
 
+	hs.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+
 	// Фоновая очистка просроченных refresh-токенов.
-	startRefreshJanitor(rootCtx, st, log, 30*time.Minute)
+	startRefreshJanitor(rootCtx, storage, log, 30*time.Minute)
 
 	// Старт сервера.
 	addr := cfg.GRPC.Addr()
-	lis, err := net.Listen("tcp", addr)
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Error("grpc_listen_failed",
 			slog.String("addr", addr),
@@ -94,7 +102,7 @@ func main() {
 
 	serveErrCh := make(chan error, 1)
 	go func() {
-		if err := grpcServer.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+		if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 			serveErrCh <- err
 		}
 		close(serveErrCh)
@@ -111,6 +119,7 @@ func main() {
 	}
 
 	// Graceful stop с таймаутом.
+	hs.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
@@ -159,7 +168,7 @@ func setupLogger(env string) *slog.Logger {
 
 // startRefreshJanitor запускает фоновую задачу, которая периодически удаляет
 // просроченные refresh-токены из хранилища с помощью storage.DeleteExpiredTokens.
-func startRefreshJanitor(ctx context.Context, st storage.Storage, log *slog.Logger, period time.Duration) {
+func startRefreshJanitor(ctx context.Context, storage storage.Storage, log *slog.Logger, period time.Duration) {
 	if period <= 0 {
 		return
 	}
@@ -172,7 +181,7 @@ func startRefreshJanitor(ctx context.Context, st storage.Storage, log *slog.Logg
 			case <-ctx.Done():
 				return
 			case <-t.C:
-				if err := st.DeleteExpiredTokens(ctx, time.Now().UTC()); err != nil {
+				if err := storage.DeleteExpiredTokens(ctx, time.Now().UTC()); err != nil {
 					log.Error("refresh_janitor_failed", slog.String("err", err.Error()))
 				}
 			}
