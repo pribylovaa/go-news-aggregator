@@ -1,11 +1,14 @@
+// file: cmd/auth-service/main.go
 package main
 
 import (
+	authv1 "auth-service/gen/go/auth"
 	"auth-service/internal/config"
 	"auth-service/internal/interceptors"
 	"auth-service/internal/service"
 	"auth-service/internal/storage"
 	"auth-service/internal/storage/postgres"
+	auth "auth-service/internal/transport/grpc"
 	"context"
 	"errors"
 	"flag"
@@ -15,9 +18,6 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
-	authv1 "auth-service/gen/go/auth"
-	auth "auth-service/internal/transport/grpc"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -41,9 +41,11 @@ func main() {
 	slog.SetDefault(log)
 	log.Info("starting application", "env", cfg.Env)
 
+	// Контекст для graceful shutdown.
 	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Подключение к БД c таймаутом.
 	dbCtx, dbCancel := context.WithTimeout(rootCtx, 10*time.Second)
 	st, err := postgres.New(dbCtx, cfg.DB.DatabaseURL)
 	dbCancel()
@@ -54,27 +56,33 @@ func main() {
 	defer st.Close()
 	log.Info("postgres_connected")
 
+	// Сервис.
 	svc := service.New(st, cfg.Auth)
 	log.Info("service_initialized")
 
+	// gRPC-сервер и интерсепторы.
 	grpcOpts := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
-			interceptors.WithTimeout(cfg.Timeouts.Service),
-			interceptors.UnaryLoggingInterceptor(log),
 			interceptors.Recover(log),
+			interceptors.UnaryLoggingInterceptor(log),
+			interceptors.WithTimeout(cfg.Timeouts.Service),
 		),
 	}
 	grpcServer := grpc.NewServer(grpcOpts...)
 
+	// Регистрация сервиса.
 	authv1.RegisterAuthServiceServer(grpcServer, auth.NewAuthServer(svc))
 
+	// Рефлексия — только в local/dev.
 	if cfg.Env == envLocal || cfg.Env == envDev {
 		reflection.Register(grpcServer)
 	}
 
+	// Фоновая очистка просроченных refresh-токенов.
 	startRefreshJanitor(rootCtx, st, log, 30*time.Minute)
 
-	addr := net.JoinHostPort(cfg.GRPC.Host, cfg.GRPC.Port)
+	// Старт сервера.
+	addr := cfg.GRPC.Addr()
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Error("grpc_listen_failed",
@@ -93,6 +101,7 @@ func main() {
 		close(serveErrCh)
 	}()
 
+	// Ожидаем сигнал завершения или фатальную ошибку сервера.
 	select {
 	case <-rootCtx.Done():
 		log.Info("shutdown_requested")
@@ -102,6 +111,7 @@ func main() {
 		}
 	}
 
+	// Graceful stop с таймаутом.
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
@@ -122,7 +132,7 @@ func main() {
 	log.Info("service_stopped")
 }
 
-// setupLogger настраивает логгер.
+// setupLogger настраивает slog по окружению.
 func setupLogger(env string) *slog.Logger {
 	var log *slog.Logger
 
@@ -148,7 +158,8 @@ func setupLogger(env string) *slog.Logger {
 	return log
 }
 
-// startRefreshJanitor периодически вызывает DeleteExpiredTokens.
+// startRefreshJanitor запускает фоновую задачу, которая периодически удаляет
+// просроченные refresh-токены из хранилища с помощью storage.DeleteExpiredTokens.
 func startRefreshJanitor(ctx context.Context, st storage.Storage, log *slog.Logger, period time.Duration) {
 	if period <= 0 {
 		return
