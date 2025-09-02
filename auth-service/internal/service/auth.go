@@ -20,7 +20,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// RegisterUser регистрирует нового пользователя.
+// RegisterUser регистрирует нового пользователя и выпускает стартовую пару токенов.
+//
+// Валидация:
+//   - email нормализуется и проверяется (ParseAddress, приведение к нижнему регистру);
+//   - пароль проверяется на минимальные требования сложности.
+//
+// Поведение:
+//   - при занятости email возвращает ErrEmailTaken;
+//   - при невалидном вводе — ErrInvalidEmail / ErrWeakPassword / ErrEmptyPassword;
+//   - при успехе создаёт пользователя в хранилище и возвращает пару (access+refresh) и userID.
 func (s *Service) RegisterUser(ctx context.Context, email, password string) (*models.TokenPair, uuid.UUID, error) {
 	const op = "service.auth.RegisterUser"
 
@@ -126,7 +135,12 @@ func (s *Service) RegisterUser(ctx context.Context, email, password string) (*mo
 	return tokenPair, uid, nil
 }
 
-// LoginUser выполняет вход по email+пароль.
+// LoginUser аутентифицирует пользователя по паре email/пароль и
+// при успехе выпускает новую пару токенов.
+//
+// Поведение:
+//   - при неверных данных/отсутствующем пользователе возвращает ErrInvalidCredentials;
+//   - ошибки стораджа/хеширования прокидываются наверх (обёрнутые).
 func (s *Service) LoginUser(ctx context.Context, email, password string) (*models.TokenPair, uuid.UUID, error) {
 	const op = "service.auth.LoginUser"
 
@@ -201,7 +215,14 @@ func (s *Service) LoginUser(ctx context.Context, email, password string) (*model
 	return tokenPair, uid, nil
 }
 
-// RefreshToken обновляет пару токенов по refresh-токену.
+// RefreshToken обновляет пару токенов по валидному refresh-токену.
+//
+// Процесс:
+//  1. валидация plain-refresh (lookup по хэшу, проверка revoked/expiry);
+//  2. загрузка пользователя;
+//  3. отзыв старого refresh и выпуск новой пары.
+//
+// Возвращает ErrInvalidToken / ErrTokenExpired / ErrTokenRevoked — в зависимости от причины отказа.
 func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*models.TokenPair, uuid.UUID, error) {
 	const op = "service.auth.RefreshToken"
 
@@ -254,7 +275,9 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*model
 	return tokenPair, uid, nil
 }
 
-// RevokeToken отзывает refresh-токен.
+// RevokeToken отзывает (делает недействительным) указанный refresh-токен.
+// Повторная ревокация возвращает ErrTokenRevoked.
+// Отсутствующий токен — ErrInvalidToken.
 func (s *Service) RevokeToken(ctx context.Context, refreshToken string) error {
 	const op = "service.auth.RevokeToken"
 
@@ -293,7 +316,8 @@ func (s *Service) RevokeToken(ctx context.Context, refreshToken string) error {
 	return nil
 }
 
-// ValidateToken проверяет access-токен и возвращает данные пользователя.
+// ValidateToken валидирует access-токен (JWT) и возвращает идентификатор/почту пользователя.
+// Для недействительных/просроченных токенов — ErrInvalidToken/ErrTokenExpired.
 func (s *Service) ValidateToken(ctx context.Context, accessToken string) (uuid.UUID, string, error) {
 	const op = "service.auth.ValidateToken"
 
@@ -323,7 +347,7 @@ func (s *Service) ValidateToken(ctx context.Context, accessToken string) (uuid.U
 	return uid, email, nil
 }
 
-// hashPassword хэширует пароль с помощью bcrypt.
+// hashPassword хеширует пароль алгоритмом bcrypt (DefaultCost).
 func hashPassword(password string) (string, error) {
 	const op = "service.auth.hashPassword"
 
@@ -335,12 +359,12 @@ func hashPassword(password string) (string, error) {
 	return string(bytes), nil
 }
 
-// checkPassword сравнивает пароль с хэшем.
+// checkPassword сравнивает пароль с хешем (bcrypt).
 func checkPassword(hash, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
 
-// validateEmail проверяет базовый формат email и обрезает пробелы снаружи.
+// validateEmail проверяет формат email и нормализует его к нижнему регистру.
 func validateEmail(raw string) (string, error) {
 	const op = "service.auth.validateEmail"
 
@@ -357,8 +381,8 @@ func validateEmail(raw string) (string, error) {
 	return strings.ToLower(addr.Address), nil
 }
 
-// validatePassword проверяет минимальные требования к паролю.
-// Политика по умолчанию: длина >= 8, хотя бы одна строчная, заглавная, цифра и спецсимвол.
+// validatePassword проверяет минимальные требования сложности:
+// длина >= 8, наличие строчной/заглавной/цифры/спецсимвола.
 func validatePassword(pw string) error {
 	const op = "service.auth.validatePassword"
 
@@ -391,8 +415,9 @@ func validatePassword(pw string) error {
 	return nil
 }
 
-// issueTokenPair выпускает новую пару access+refresh токенов.
-// Если oldRefreshHash != "", пытается атомарно отозвать старый refresh-токен.
+// issueTokenPair выпускает новую пару токенов (access+refresh).
+// Если oldRefreshHash != "", сначала пытается отозвать старый refresh.
+// В случае коллизии/отзыва возвращает соответствующие ошибки сервиса.
 func (s *Service) issueTokenPair(ctx context.Context, user *models.User, oldRefreshHash string) (*models.TokenPair, uuid.UUID, error) {
 	const op = "service.auth.issueTokenPair"
 

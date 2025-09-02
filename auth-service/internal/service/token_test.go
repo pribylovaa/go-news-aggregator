@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"regexp"
 	"testing"
 	"time"
 
@@ -19,6 +20,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Файл unit-тестов для token.go (выпуск/валидация токенов).
+// Покрытие:
+//   - generateAccessToken/validateAccessToken: happy-path, неправильный алгоритм, неверные issuer/audience,
+//     просроченный токен, неверный формат uid в клеймах, неверный секрет подписи,
+//     а также проверка leeway (exp/iat немного в прошлом — токен валиден).
+//   - generateRefreshToken: сохранение хэша, соблюдение TTL, ретраи при коллизии, формат plain (base64url, без паддинга),
+//     ошибки стораджа и исчерпание ретраев.
+//   - validateRefreshToken: NotFound → ErrInvalidToken, Revoked -> ErrTokenRevoked,
+//     Expired (в т.ч. граничный случай expires_at == now), и прокидывание ошибок стораджа.
+//
+// Запуск:
+//   go test ./internal/service -v -race -count=1
+//
+// Детали реализации см. token.go (HS256, строгие iss/aud, 5s leeway, refresh 32 байта base64url, sha256+base64url-хэш).
+// Это влияет на ожидания тестов (длина plain=43, URL-safe алфавит, маппинг ошибок в ErrInvalidToken/ErrTokenExpired и т.п.).
+
+// testAuthCfg — минимальная конфигурация для unit-тестов token.go
 func testAuthCfg() config.AuthConfig {
 	return config.AuthConfig{
 		JWTSecret:       "unit-test-secret",
@@ -29,6 +47,7 @@ func testAuthCfg() config.AuthConfig {
 	}
 }
 
+// newServiceWithMock — фабрика Service с gomock-хранилищем для тестов.
 func newServiceWithMock(t *testing.T) (*Service, *mocks.MockStorage, *gomock.Controller) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
@@ -37,6 +56,7 @@ func newServiceWithMock(t *testing.T) (*Service, *mocks.MockStorage, *gomock.Con
 	return svc, mockSt, ctrl
 }
 
+// TestGenerateAccessToken_AndValidate_OK — happy-path: выпускаем access JWT и валидируем; сверяем uid/email.
 func TestGenerateAccessToken_AndValidate_OK(t *testing.T) {
 	svc, _, ctrl := newServiceWithMock(t)
 	defer ctrl.Finish()
@@ -55,6 +75,8 @@ func TestGenerateAccessToken_AndValidate_OK(t *testing.T) {
 	require.Equal(t, email, vEmail)
 }
 
+// TestValidateAccessToken_WrongAlg_WrongIssuer_WrongAudience —
+// некорректный алгоритм/issuer/audience приводят к ErrInvalidToken.
 func TestValidateAccessToken_WrongAlg_WrongIssuer_WrongAudience(t *testing.T) {
 	svc, _, ctrl := newServiceWithMock(t)
 	defer ctrl.Finish()
@@ -121,6 +143,7 @@ func TestValidateAccessToken_WrongAlg_WrongIssuer_WrongAudience(t *testing.T) {
 	})
 }
 
+// TestValidateAccessToken_Expired — токен с отрицательным TTL (просроченный) -> ErrTokenExpired.
 func TestValidateAccessToken_Expired(t *testing.T) {
 	svc, _, ctrl := newServiceWithMock(t)
 	defer ctrl.Finish()
@@ -141,6 +164,7 @@ func TestValidateAccessToken_Expired(t *testing.T) {
 	require.ErrorIs(t, err, ErrTokenExpired)
 }
 
+// TestValidateAccessToken_InvalidUIDClaim — некорректный uid/sub в клеймах -> ErrInvalidToken.
 func TestValidateAccessToken_InvalidUIDClaim(t *testing.T) {
 	svc, _, ctrl := newServiceWithMock(t)
 	defer ctrl.Finish()
@@ -166,6 +190,7 @@ func TestValidateAccessToken_InvalidUIDClaim(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidToken)
 }
 
+// TestGenerateRefreshToken_SavesHash_AndRespectsTTL — проверяем сохранение SHA-256 хэша и корректный TTL.
 func TestGenerateRefreshToken_SavesHash_AndRespectsTTL(t *testing.T) {
 	svc, mockSt, ctrl := newServiceWithMock(t)
 	defer ctrl.Finish()
@@ -195,6 +220,7 @@ func TestGenerateRefreshToken_SavesHash_AndRespectsTTL(t *testing.T) {
 	require.False(t, saved.Revoked)
 }
 
+// TestGenerateRefreshToken_CollisionRetries_ThenSuccess — первая попытка -> ErrAlreadyExists, вторая — успешна.
 func TestGenerateRefreshToken_CollisionRetries_ThenSuccess(t *testing.T) {
 	svc, mockSt, ctrl := newServiceWithMock(t)
 	defer ctrl.Finish()
@@ -213,6 +239,7 @@ func TestGenerateRefreshToken_CollisionRetries_ThenSuccess(t *testing.T) {
 	require.NotEmpty(t, plain)
 }
 
+// TestGenerateRefreshToken_CollisionExceeded_ReturnsErr — 5 подряд коллизий -> ErrRefreshTokenCollision.
 func TestGenerateRefreshToken_CollisionExceeded_ReturnsErr(t *testing.T) {
 	svc, mockSt, ctrl := newServiceWithMock(t)
 	defer ctrl.Finish()
@@ -228,6 +255,7 @@ func TestGenerateRefreshToken_CollisionExceeded_ReturnsErr(t *testing.T) {
 	require.ErrorIs(t, err, ErrRefreshTokenCollision)
 }
 
+// TestGenerateRefreshToken_StorageOtherError_IsPropagated — иные ошибки стораджа прокидываются как есть.
 func TestGenerateRefreshToken_StorageOtherError_IsPropagated(t *testing.T) {
 	svc, mockSt, ctrl := newServiceWithMock(t)
 	defer ctrl.Finish()
@@ -242,6 +270,7 @@ func TestGenerateRefreshToken_StorageOtherError_IsPropagated(t *testing.T) {
 	require.NotErrorIs(t, err, ErrRefreshTokenCollision)
 }
 
+// TestValidateRefreshToken_Success — валидный plain-рефреш -> успешный lookup и корректные поля.
 func TestValidateRefreshToken_Success(t *testing.T) {
 	svc, mockSt, ctrl := newServiceWithMock(t)
 	defer ctrl.Finish()
@@ -272,6 +301,7 @@ func TestValidateRefreshToken_Success(t *testing.T) {
 	require.Equal(t, uid, token.UserID)
 }
 
+// TestValidateRefreshToken_NotFound_ReturnsInvalidToken — отсутствие записи -> ErrInvalidToken.
 func TestValidateRefreshToken_NotFound_ReturnsInvalidToken(t *testing.T) {
 	svc, mockSt, ctrl := newServiceWithMock(t)
 	defer ctrl.Finish()
@@ -285,6 +315,7 @@ func TestValidateRefreshToken_NotFound_ReturnsInvalidToken(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidToken)
 }
 
+// TestValidateRefreshToken_Revoked — revoked=true -> ErrTokenRevoked.
 func TestValidateRefreshToken_Revoked(t *testing.T) {
 	svc, mockSt, ctrl := newServiceWithMock(t)
 	defer ctrl.Finish()
@@ -304,6 +335,7 @@ func TestValidateRefreshToken_Revoked(t *testing.T) {
 	require.ErrorIs(t, err, ErrTokenRevoked)
 }
 
+// TestValidateRefreshToken_Expired — ExpiresAt в прошлом -> ErrTokenExpired.
 func TestValidateRefreshToken_Expired(t *testing.T) {
 	svc, mockSt, ctrl := newServiceWithMock(t)
 	defer ctrl.Finish()
@@ -323,6 +355,7 @@ func TestValidateRefreshToken_Expired(t *testing.T) {
 	require.ErrorIs(t, err, ErrTokenExpired)
 }
 
+// TestValidateRefreshToken_StorageError — ошибка стораджа при lookup -> возвращается вверх.
 func TestValidateRefreshToken_StorageError(t *testing.T) {
 	svc, mockSt, ctrl := newServiceWithMock(t)
 	defer ctrl.Finish()
@@ -335,5 +368,96 @@ func TestValidateRefreshToken_StorageError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// fmtWrap - оборачивает ошибку из storage, имитируя fmt.Errorf("%w").
+// TestValidateAccessToken_WrongSecret_ReturnsInvalidToken — подпись сделана другим секретом -> ErrInvalidToken.
+func TestValidateAccessToken_WrongSecret_ReturnsInvalidToken(t *testing.T) {
+	svc, _, ctrl := newServiceWithMock(t)
+	defer ctrl.Finish()
+
+	uid := uuid.New()
+	now := time.Now().UTC()
+
+	claims := jwt.MapClaims{
+		"uid":   uid.String(),
+		"email": "u@e.com",
+		"iss":   testAuthCfg().Issuer,
+		"sub":   uid.String(),
+		"aud":   testAuthCfg().Audience,
+		"exp":   now.Add(testAuthCfg().AccessTokenTTL).Unix(),
+		"iat":   now.Unix(),
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := tok.SignedString([]byte("another-secret"))
+	require.NoError(t, err)
+
+	_, _, err = svc.validateAccessToken(signed)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrInvalidToken)
+}
+
+// TestValidateAccessToken_Leeway_AllowsSlightSkew — exp/iat в прошлом (3s) валиден из-за leeway = 5s.
+func TestValidateAccessToken_Leeway_AllowsSlightSkew(t *testing.T) {
+	svc, _, ctrl := newServiceWithMock(t)
+	defer ctrl.Finish()
+
+	// exp/iat немного в прошлом (3s) — допустимо из-за leeway = 5s.
+	now := time.Now().UTC()
+	uid := uuid.New()
+	claims := jwt.MapClaims{
+		"uid":   uid.String(),
+		"email": "u@e.com",
+		"iss":   testAuthCfg().Issuer,
+		"sub":   uid.String(),
+		"aud":   testAuthCfg().Audience,
+		"exp":   now.Add(-3 * time.Second).Unix(),
+		"iat":   now.Add(-3 * time.Second).Unix(),
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := tok.SignedString([]byte(testAuthCfg().JWTSecret))
+	require.NoError(t, err)
+
+	gotUID, gotEmail, err := svc.validateAccessToken(signed)
+	require.NoError(t, err)
+	require.Equal(t, uid, gotUID)
+	require.Equal(t, "u@e.com", gotEmail)
+}
+
+// TestValidateRefreshToken_ExpiresNow_TreatedAsExpired — граничный случай: expires_at == now тоже истёк.
+func TestValidateRefreshToken_ExpiresNow_TreatedAsExpired(t *testing.T) {
+	svc, mockSt, ctrl := newServiceWithMock(t)
+	defer ctrl.Finish()
+
+	// ExpiresAt == now -> считается истёкшим (проверка !ExpiresAt.After(now)).
+	now := time.Now().UTC()
+
+	mockSt.EXPECT().
+		RefreshTokenByHash(gomock.Any(), gomock.Any()).
+		Return(&models.RefreshToken{
+			RefreshTokenHash: "h",
+			UserID:           uuid.New(),
+			CreatedAt:        now.Add(-time.Hour),
+			ExpiresAt:        now, // ровно сейчас
+			Revoked:          false,
+		}, nil)
+
+	_, err := svc.validateRefreshToken(context.Background(), "any")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrTokenExpired)
+}
+
+// TestGenerateRefreshToken_Format_Base64URL_NoPadding — plain должен быть base64url длиной 43 без паддинга.
+func TestGenerateRefreshToken_Format_Base64URL_NoPadding(t *testing.T) {
+	svc, mockSt, ctrl := newServiceWithMock(t)
+	defer ctrl.Finish()
+
+	mockSt.EXPECT().SaveRefreshToken(gomock.Any(), gomock.Any()).Return(nil)
+
+	plain, err := svc.generateRefreshToken(context.Background(), uuid.New())
+	require.NoError(t, err)
+
+	// 32 байта -> base64url без паддинга => длина 43, алфавит: [A-Za-z0-9_-]
+	require.Len(t, plain, 43)
+	require.Regexp(t, regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`), plain)
+}
+
+// fmtWrap — обёртка для имитации fmt.Errorf("%w", err) над ошибками стораджа.
 func fmtWrap(err error) error { return fmt.Errorf("wrapped: %w", err) }
