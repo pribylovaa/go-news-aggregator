@@ -27,6 +27,10 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
+// Файл unit-тестов транспортного слоя (gRPC) для AuthService.
+// Все тесты изолированы: для каждого создаётся отдельный bufconn-сервер.
+
+// testCfg — минимальная конфигурация сервиса для тестов транспорта.
 func testCfg() config.AuthConfig {
 	return config.AuthConfig{
 		JWTSecret:       "unit-secret",
@@ -37,6 +41,7 @@ func testCfg() config.AuthConfig {
 	}
 }
 
+// newSvcWithMock — фабрика сервисного слоя с gomock-хранилищем.
 func newSvcWithMock(t *testing.T) (*service.Service, *mocks.MockStorage, *gomock.Controller) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
@@ -44,6 +49,8 @@ func newSvcWithMock(t *testing.T) (*service.Service, *mocks.MockStorage, *gomock
 	return service.New(st, testCfg()), st, ctrl
 }
 
+// startGRPC — поднимает bufconn-gRPC-сервер с переданным сервисом
+// и возвращает клиент и функцию очистки.
 func startGRPC(t *testing.T, svc *service.Service) (authv1.AuthServiceClient, func()) {
 	t.Helper()
 
@@ -66,6 +73,7 @@ func startGRPC(t *testing.T, svc *service.Service) (authv1.AuthServiceClient, fu
 	return authv1.NewAuthServiceClient(cc), cleanup
 }
 
+// hashPW — утилита для генерации валидного bcrypt-хеша.
 func hashPW(t *testing.T, p string) string {
 	t.Helper()
 	b, err := bcrypt.GenerateFromPassword([]byte(p), bcrypt.DefaultCost)
@@ -73,11 +81,14 @@ func hashPW(t *testing.T, p string) string {
 	return string(b)
 }
 
+// rtHash — SHA-256 -> base64.RawURLEncoding для plain-refresh токена.
 func rtHash(plain string) string {
 	sum := sha256.Sum256([]byte(plain))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
+// TestRegisterUser_OK — happy-path регистрации:
+// пользователь создаётся, возвращается корректная пара токенов.
 func TestRegisterUser_OK(t *testing.T) {
 	t.Parallel()
 
@@ -102,6 +113,7 @@ func TestRegisterUser_OK(t *testing.T) {
 	require.Greater(t, resp.AccessExpiresAt, time.Now().Add(1*time.Second).Unix()-1)
 }
 
+// TestRegisterUser_InvalidArgument — невалидные входные данные -> InvalidArgument.
 func TestRegisterUser_InvalidArgument(t *testing.T) {
 	t.Parallel()
 
@@ -110,14 +122,14 @@ func TestRegisterUser_InvalidArgument(t *testing.T) {
 	client, done := startGRPC(t, svc)
 	defer done()
 
-	// Невалидный email -> InvalidArgument.
+	// невалидный email.
 	_, err := client.RegisterUser(context.Background(), &authv1.RegisterRequest{
 		Email: "bad", Password: "Abcdef1!",
 	})
 	require.Error(t, err)
 	require.Equal(t, codes.InvalidArgument, status.Code(err))
 
-	// Слабый пароль -> InvalidArgument.
+	// слабый пароль.
 	_, err = client.RegisterUser(context.Background(), &authv1.RegisterRequest{
 		Email: "user@example.com", Password: "short",
 	})
@@ -125,6 +137,8 @@ func TestRegisterUser_InvalidArgument(t *testing.T) {
 	require.Equal(t, codes.InvalidArgument, status.Code(err))
 }
 
+// TestRegisterUser_AlreadyExists_And_Internal — конфликт уникальности -> AlreadyExists,
+// иные ошибки -> Internal.
 func TestRegisterUser_AlreadyExists_And_Internal(t *testing.T) {
 	t.Parallel()
 
@@ -133,7 +147,7 @@ func TestRegisterUser_AlreadyExists_And_Internal(t *testing.T) {
 	client, done := startGRPC(t, svc)
 	defer done()
 
-	// AlreadyExists через SaveUser: ErrAlreadyExists.
+	// AlreadyExists через SaveUser.
 	gomock.InOrder(
 		st.EXPECT().UserByEmail(gomock.Any(), "user@example.com").Return(nil, storage.ErrNotFound),
 		st.EXPECT().SaveUser(gomock.Any(), gomock.Any()).Return(storage.ErrAlreadyExists),
@@ -153,6 +167,7 @@ func TestRegisterUser_AlreadyExists_And_Internal(t *testing.T) {
 	require.Equal(t, codes.Internal, status.Code(err))
 }
 
+// TestLoginUser_OK — успешный логин выдаёт пару токенов.
 func TestLoginUser_OK(t *testing.T) {
 	t.Parallel()
 
@@ -180,6 +195,8 @@ func TestLoginUser_OK(t *testing.T) {
 	require.NotEmpty(t, resp.RefreshToken)
 }
 
+// TestLoginUser_Unauthenticated_And_Internal — отсутствие пользователя -> Unauthenticated,
+// иная ошибка -> Internal.
 func TestLoginUser_Unauthenticated_And_Internal(t *testing.T) {
 	t.Parallel()
 
@@ -205,6 +222,7 @@ func TestLoginUser_Unauthenticated_And_Internal(t *testing.T) {
 	require.Equal(t, codes.Internal, status.Code(err))
 }
 
+// TestRefreshToken_OK — валидный refresh и успешная ротация -> новая пара токенов.
 func TestRefreshToken_OK(t *testing.T) {
 	t.Parallel()
 
@@ -241,6 +259,8 @@ func TestRefreshToken_OK(t *testing.T) {
 	require.NotEmpty(t, resp.RefreshToken)
 }
 
+// TestRefreshToken_Unauthenticated_And_Internal — невалидный/отозванный/просроченный -> Unauthenticated,
+// внутренняя ошибка на lookup user -> Internal.
 func TestRefreshToken_Unauthenticated_And_Internal(t *testing.T) {
 	t.Parallel()
 
@@ -251,13 +271,13 @@ func TestRefreshToken_Unauthenticated_And_Internal(t *testing.T) {
 
 	hash := rtHash("x")
 
-	// not found -> Unauthenticated.
+	// Not found -> Unauthenticated.
 	st.EXPECT().RefreshTokenByHash(gomock.Any(), hash).Return(nil, storage.ErrNotFound)
 	_, err := client.RefreshToken(context.Background(), &authv1.RefreshTokenRequest{RefreshToken: "x"})
 	require.Error(t, err)
 	require.Equal(t, codes.Unauthenticated, status.Code(err))
 
-	// revoked -> Unauthenticated.
+	// Revoked -> Unauthenticated.
 	st.EXPECT().RefreshTokenByHash(gomock.Any(), hash).Return(&models.RefreshToken{
 		RefreshTokenHash: hash, UserID: uuid.New(),
 		CreatedAt: time.Now().Add(-time.Minute), ExpiresAt: time.Now().Add(time.Minute),
@@ -267,7 +287,7 @@ func TestRefreshToken_Unauthenticated_And_Internal(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, codes.Unauthenticated, status.Code(err))
 
-	// expired -> Unauthenticated.
+	// Expired -> Unauthenticated.
 	st.EXPECT().RefreshTokenByHash(gomock.Any(), hash).Return(&models.RefreshToken{
 		RefreshTokenHash: hash, UserID: uuid.New(),
 		CreatedAt: time.Now().Add(-2 * time.Minute), ExpiresAt: time.Now().Add(-time.Second),
@@ -290,6 +310,45 @@ func TestRefreshToken_Unauthenticated_And_Internal(t *testing.T) {
 	require.Equal(t, codes.Internal, status.Code(err))
 }
 
+// TestRefreshToken_RotationErrors_MapToUnauthenticated — ошибки ротации:
+// старый refresh не найден или уже отозван -> Unauthenticated.
+func TestRefreshToken_RotationErrors_MapToUnauthenticated(t *testing.T) {
+	t.Parallel()
+
+	svc, st, ctrl := newSvcWithMock(t)
+	defer ctrl.Finish()
+	client, done := startGRPC(t, svc)
+	defer done()
+
+	plain := "r"
+	hash := rtHash(plain)
+	userID := uuid.New()
+
+	// Валидный старый refresh + пользователь найден.
+	st.EXPECT().RefreshTokenByHash(gomock.Any(), hash).Return(&models.RefreshToken{
+		RefreshTokenHash: hash, UserID: userID,
+		CreatedAt: time.Now().Add(-time.Hour), ExpiresAt: time.Now().Add(time.Hour),
+		Revoked: false,
+	}, nil).Times(2) // два сценария ниже
+	st.EXPECT().UserByID(gomock.Any(), userID).Return(&models.User{
+		ID: userID, Email: "u@e.com",
+	}, nil).Times(2)
+
+	// (1) Старый refresh не найден при revoke -> ErrInvalidToken -> Unauthenticated.
+	st.EXPECT().RevokeRefreshToken(gomock.Any(), hash).Return(false, storage.ErrNotFound)
+	_, err := client.RefreshToken(context.Background(), &authv1.RefreshTokenRequest{RefreshToken: plain})
+	require.Error(t, err)
+	require.Equal(t, codes.Unauthenticated, status.Code(err))
+
+	// (2) Старый уже отозван -> ErrTokenRevoked -> Unauthenticated.
+	st.EXPECT().RevokeRefreshToken(gomock.Any(), hash).Return(false, nil)
+	_, err = client.RefreshToken(context.Background(), &authv1.RefreshTokenRequest{RefreshToken: plain})
+	require.Error(t, err)
+	require.Equal(t, codes.Unauthenticated, status.Code(err))
+}
+
+// TestRevokeToken_OK_And_Unauthenticated_And_Internal — маппинг ошибок revoke:
+// OK, не найдено/уже отозван (Unauthenticated), прочее (Internal).
 func TestRevokeToken_OK_And_Unauthenticated_And_Internal(t *testing.T) {
 	t.Parallel()
 
@@ -312,6 +371,12 @@ func TestRevokeToken_OK_And_Unauthenticated_And_Internal(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, codes.Unauthenticated, status.Code(err))
 
+	// Unauthenticated: уже отозван (false, nil) -> ErrTokenRevoked в сервисе.
+	st.EXPECT().RevokeRefreshToken(gomock.Any(), hash).Return(false, nil)
+	_, err = client.RevokeToken(context.Background(), &authv1.RevokeTokenRequest{RefreshToken: "r"})
+	require.Error(t, err)
+	require.Equal(t, codes.Unauthenticated, status.Code(err))
+
 	// Internal: любая другая ошибка.
 	st.EXPECT().RevokeRefreshToken(gomock.Any(), hash).Return(false, errors.New("db revoke fail"))
 	_, err = client.RevokeToken(context.Background(), &authv1.RevokeTokenRequest{RefreshToken: "r"})
@@ -319,6 +384,7 @@ func TestRevokeToken_OK_And_Unauthenticated_And_Internal(t *testing.T) {
 	require.Equal(t, codes.Internal, status.Code(err))
 }
 
+// makeExpiredAccessToken — формирует валидный по форме, но просроченный JWT.
 func makeExpiredAccessToken(t *testing.T, uid uuid.UUID, email string) string {
 	t.Helper()
 	cfg := testCfg()
@@ -340,6 +406,8 @@ func makeExpiredAccessToken(t *testing.T, uid uuid.UUID, email string) string {
 	return signed
 }
 
+// TestValidateToken_Valid_And_Invalid_And_Expired_NoRPCErr — контракт ValidateToken:
+// при невалидном/просроченном токене RPC-ошибка не возвращается, только {Valid:false}.
 func TestValidateToken_Valid_And_Invalid_And_Expired_NoRPCErr(t *testing.T) {
 	t.Parallel()
 
