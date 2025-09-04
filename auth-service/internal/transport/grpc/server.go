@@ -137,8 +137,6 @@ func (s *AuthServer) RevokeToken(ctx context.Context, req *authv1.RevokeTokenReq
 // Контракт: при невалидном/просроченном токене RPC-ошибку не возвращает —
 // отдаёт {Valid:false}. При прочих ошибках — Internal.
 func (s *AuthServer) ValidateToken(ctx context.Context, req *authv1.ValidateTokenRequest) (*authv1.ValidateTokenResponse, error) {
-	const op = "transport/grpc/server/ValidateToken"
-
 	uid, email, err := s.service.ValidateToken(ctx, req.GetAccessToken())
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidToken) || errors.Is(err, service.ErrTokenExpired) || errors.Is(err, service.ErrTokenRevoked) {

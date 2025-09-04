@@ -31,8 +31,9 @@ func applyRefreshMigration(t *testing.T, st *Storage) {
 }
 
 // seedUser — создаёт пользователя и возвращает его ID.
-func seedUser(t *testing.T, st *Storage, email string) uuid.UUID {
+func seedUser(t *testing.T, st *Storage) uuid.UUID {
 	t.Helper()
+	const email = "user@example.com"
 	now := time.Now().UTC()
 	u := &models.User{
 		ID:           uuid.New(),
@@ -59,7 +60,7 @@ func TestIntegration_SaveRefreshToken_And_GetByHash_OK(t *testing.T) {
 	applyRefreshMigration(t, st)
 
 	ctx := context.Background()
-	userID := seedUser(t, st, "user@example.com")
+	userID := seedUser(t, st)
 
 	now := time.Now().UTC()
 	plain := "plain-refresh-1"
@@ -91,7 +92,7 @@ func TestIntegration_SaveRefreshToken_UniqueViolation(t *testing.T) {
 	applyRefreshMigration(t, st)
 
 	ctx := context.Background()
-	userID := seedUser(t, st, "user@example.com")
+	userID := seedUser(t, st)
 
 	now := time.Now().UTC()
 	hash := hashRefresh("dup-refresh")
@@ -178,7 +179,7 @@ func TestIntegration_RevokeRefreshToken_Flow(t *testing.T) {
 	applyRefreshMigration(t, st)
 
 	ctx := context.Background()
-	userID := seedUser(t, st, "user@example.com")
+	userID := seedUser(t, st)
 
 	now := time.Now().UTC()
 	hash := hashRefresh("to-revoke")
@@ -231,7 +232,7 @@ func TestIntegration_DeleteExpiredTokens_DeletesOnlyExpired(t *testing.T) {
 	applyRefreshMigration(t, st)
 
 	ctx := context.Background()
-	userID := seedUser(t, st, "user@example.com")
+	userID := seedUser(t, st)
 	now := time.Now().UTC()
 
 	// истёк в прошлом -> удалится.

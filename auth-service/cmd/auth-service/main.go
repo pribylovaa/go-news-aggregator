@@ -1,3 +1,4 @@
+// file: cmd/auth-service/main.go
 package main
 
 import (
@@ -42,9 +43,8 @@ func main() {
 	slog.SetDefault(log)
 	log.Info("starting application", "env", cfg.Env)
 
-	// Корневой контекст с отменой по сигналу.
+	// Корневой контекст по сигналам.
 	rootCtx, rootCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer rootCancel()
 
 	// Подключение к БД c таймаутом.
 	dbCtx, dbCancel := context.WithTimeout(rootCtx, 10*time.Second)
@@ -52,9 +52,9 @@ func main() {
 	dbCancel()
 	if err != nil {
 		log.Error("postgres_connect_failed", slog.String("err", err.Error()))
+		rootCancel()
 		os.Exit(1)
 	}
-	defer str.Close()
 	log.Info("postgres_connected")
 
 	// Сервис.
@@ -96,6 +96,8 @@ func main() {
 			slog.String("addr", addr),
 			slog.String("err", err.Error()),
 		)
+		rootCancel()
+		str.Close()
 		os.Exit(1)
 	}
 	log.Info("grpc_listen_start", slog.String("addr", addr))
@@ -108,7 +110,7 @@ func main() {
 		close(serveErrCh)
 	}()
 
-	// Ожидаем сигнал завершения или фатальную ошибку сервера.
+	// Ожидание сигнала завершения или фатальной ошибки сервера.
 	select {
 	case <-rootCtx.Done():
 		log.Info("shutdown_requested")
@@ -121,7 +123,6 @@ func main() {
 	// Graceful stop с таймаутом.
 	hs.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
 
 	done := make(chan struct{})
 	go func() {
@@ -137,7 +138,13 @@ func main() {
 		grpcServer.Stop()
 	}
 
+	// Явная очистка перед выходом.
+	shutdownCancel()
+	rootCancel()
+	str.Close()
+
 	log.Info("service_stopped")
+	os.Exit(0)
 }
 
 // setupLogger настраивает slog по окружению.

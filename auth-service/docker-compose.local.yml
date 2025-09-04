@@ -1,0 +1,58 @@
+version: "3.9"
+
+name: auth-service-local
+
+services:
+  auth-db:
+    image: postgres:16-alpine
+    container_name: auth-db
+    environment:
+      POSTGRES_DB: auth
+      POSTGRES_USER: administrator
+      POSTGRES_PASSWORD: administrator
+    volumes:
+      - data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h 127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    ports:
+      - "5433:5432" 
+    networks: [go-news-net]
+
+  auth-migrate:
+    image: migrate/migrate:4
+    container_name: auth-migrate
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations:ro
+    command: ["-path=/migrations", "-database=postgres://administrator:administrator@auth-db:5432/auth?sslmode=disable", "up"]
+    restart: "no"
+    networks: [go-news-net]
+
+  auth-service:
+    image: ghcr.io/<owner>/go-news-aggregator/auth-service:latest 
+    container_name: auth-service
+    depends_on:
+      auth-migrate:
+        condition: service_completed_successfully
+    environment:
+      CONFIG_PATH: /etc/auth-service/config.yaml
+    volumes:
+      - ./config/local.yaml:/etc/auth-service/config.yaml:ro
+    ports:
+      - "50051:50051"
+    networks: [go-news-net]
+
+volumes:
+  data:
+
+networks:
+  go-news-net:
+    external: true
+    name: go-news-net
+

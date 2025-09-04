@@ -12,7 +12,7 @@ auth:
   audience: ["api-gateway"]
 
 db:
-  db_url: "postgres://administrator:administrator@localhost:5432/auth?sslmode=disable"
+  db_url: "postgres://administrator:administrator@auth-db:5432/auth?sslmode=disable"
 
 timeouts:
   service: 5s
