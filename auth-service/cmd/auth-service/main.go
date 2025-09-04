@@ -48,17 +48,17 @@ func main() {
 
 	// Подключение к БД c таймаутом.
 	dbCtx, dbCancel := context.WithTimeout(rootCtx, 10*time.Second)
-	storage, err := postgres.New(dbCtx, cfg.DB.DatabaseURL)
+	str, err := postgres.New(dbCtx, cfg.DB.DatabaseURL)
 	dbCancel()
 	if err != nil {
 		log.Error("postgres_connect_failed", slog.String("err", err.Error()))
 		os.Exit(1)
 	}
-	defer storage.Close()
+	defer str.Close()
 	log.Info("postgres_connected")
 
 	// Сервис.
-	service := service.New(storage, cfg.Auth)
+	srvc := service.New(str, cfg.Auth)
 	log.Info("service_initialized")
 
 	// gRPC-сервер и интерсепторы.
@@ -76,7 +76,7 @@ func main() {
 	healthpb.RegisterHealthServer(grpcServer, hs)
 
 	// Регистрация сервиса.
-	authv1.RegisterAuthServiceServer(grpcServer, auth.NewAuthServer(service))
+	authv1.RegisterAuthServiceServer(grpcServer, auth.NewAuthServer(srvc))
 
 	// Рефлексия — только в local/dev.
 	if cfg.Env == envLocal || cfg.Env == envDev {
@@ -86,7 +86,7 @@ func main() {
 	hs.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 
 	// Фоновая очистка просроченных refresh-токенов.
-	startRefreshJanitor(rootCtx, storage, log, 30*time.Minute)
+	startRefreshJanitor(rootCtx, str, log, 30*time.Minute)
 
 	// Старт сервера.
 	addr := cfg.GRPC.Addr()
