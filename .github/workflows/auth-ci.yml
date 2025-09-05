@@ -44,10 +44,10 @@ jobs:
       - name: Lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.61.0
-          args: --timeout=5m
-          working-directory: auth-service
+          version: latest
           install-mode: goinstall
+          args: --timeout=5m
+          working-directory: auth-service          
 
   unit-tests:
     needs: lint
