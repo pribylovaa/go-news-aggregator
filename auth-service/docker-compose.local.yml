@@ -35,7 +35,7 @@ services:
     networks: [go-news-net]
 
   auth-service:
-    image: ghcr.io/<owner>/go-news-aggregator/auth-service:latest 
+    image: ghcr.io/pribylovaa/go-news-aggregator/auth-service-test:sha-26bb8ba
     container_name: auth-service
     depends_on:
       auth-migrate:
