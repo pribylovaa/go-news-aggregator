@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch: {}
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -17,8 +18,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      GOTOOLCHAIN: auto
+    env: { GOTOOLCHAIN: auto }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,8 +51,7 @@ jobs:
     needs: lint
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      GOTOOLCHAIN: auto
+    env: { GOTOOLCHAIN: auto }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -75,7 +74,7 @@ jobs:
             ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-
             ${{ runner.os }}-go-
 
-      - name: Unit tests 
+      - name: Unit tests
         run: go test ./... -race -count=1 -coverprofile=coverage.out -covermode=atomic
 
       - name: Upload coverage
@@ -88,8 +87,7 @@ jobs:
     needs: unit-tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      GOTOOLCHAIN: auto
+    env: { GOTOOLCHAIN: auto }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -152,11 +150,11 @@ jobs:
             ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-
             ${{ runner.os }}-go-
 
-      - name: Docker info (debug)
+      - name: Docker info 
         run: |
           docker version
           docker info
 
-      - name: Run integration tests 
+      - name: Integration tests
         run: |
           go test ./internal/storage/postgres -v -race -count=1
