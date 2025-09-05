@@ -1,4 +1,4 @@
-name: CI
+name: Auth-service CI
 
 on:
   push:
@@ -36,7 +36,7 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-${{ hashFiles('auth-service/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-
             ${{ runner.os }}-go-
@@ -46,12 +46,16 @@ jobs:
         with:
           version: v1.56.2
           args: --timeout=5m
+          working-directory: auth-service
 
   unit-tests:
     needs: lint
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env: { GOTOOLCHAIN: auto }
+    defaults:
+      run:
+        working-directory: auth-service
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -69,7 +73,7 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-${{ hashFiles('auth-service/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-
             ${{ runner.os }}-go-
@@ -81,13 +85,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage
-          path: coverage.out
+          path: auth-service/coverage.out
 
   build-binary:
     needs: unit-tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env: { GOTOOLCHAIN: auto }
+    defaults:
+      run:
+        working-directory: auth-service
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -105,7 +112,7 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-${{ hashFiles('auth-service/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-
             ${{ runner.os }}-go-
@@ -119,12 +126,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: auth-service-bin
-          path: bin/auth-service
+          path: auth-service/bin/auth-service
 
   integration-tests:
     needs: unit-tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: auth-service
     env:
       GOTOOLCHAIN: auto
       GO_TEST_INTEGRATION: '1'
@@ -145,16 +155,16 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-${{ hashFiles('auth-service/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-
             ${{ runner.os }}-go-
 
-      - name: Docker info 
+      - name: Docker info
         run: |
           docker version
           docker info
 
       - name: Integration tests
-        run: |
-          go test ./internal/storage/postgres -v -race -count=1
+        run: go test ./internal/storage/postgres -v -race -count=1
+
