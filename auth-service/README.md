@@ -23,7 +23,7 @@
 ## Архитектура сервиса
 
 ### Ключевые аспекты: 
-
+```bash
 cmd/auth-service/        # main: точка входа
 internal/
   config/                # загрузка конфигурации (cleanenv)
@@ -36,7 +36,7 @@ internal/
   transport/grpc/        # адаптер к protobuf API (сервер)
 gen/go/auth/             # сгенерированные protobuf-типы/клиенты
 migrations/              # SQL-миграции (users, refresh_tokens)
-
+```
 ---
 
 ## API (gRPC)
