@@ -1,4 +1,4 @@
-# auth-service
+# Auth-service
 
 Содержание:
 
