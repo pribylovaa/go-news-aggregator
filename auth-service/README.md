@@ -54,9 +54,9 @@ Proto‑схемы лежат в `auth.proto`, сгенерированные т
 
 ### Маппинг ошибок
 
-InvalidCredentials / InvalidToken / TokenExpired / TokenRevoked -> Unauthenticated
-EmailTaken                                                      -> AlreadyExists
-InvalidEmail / WeakPassword / EmptyPassword                     -> InvalidArgument
+- InvalidCredentials / InvalidToken / TokenExpired / TokenRevoked -> Unauthenticated
+- EmailTaken                                                      -> AlreadyExists
+- InvalidEmail / WeakPassword / EmptyPassword                     -> InvalidArgument
 
 ---
 
