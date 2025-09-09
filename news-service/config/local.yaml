@@ -1,0 +1,16 @@
+env: "local"
+
+grpc:
+  host: "0.0.0.0"
+  port: "50052"
+
+db:
+  url: "postgres://administrator:administrator@news-db:5432/news?sslmode=disable"
+
+fetcher:
+  sources: ["https://www.marieclaire.ru/rss-feeds/rss.xml", "https://eva.ru/rss/news.xml", "https://www.woman.ru/rss-feeds/rss.xml"]
+  interval: "10m"
+
+limits:
+  default: 12
+  max: 300
