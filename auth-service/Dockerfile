@@ -33,7 +33,6 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # Конфиг по умолчанию внутри контейнера
 ENV CONFIG_PATH=/etc/auth-service/config.yaml
 
-USER nonroot:nonroot
 EXPOSE 50051
 
 ENTRYPOINT ["/usr/local/bin/auth-service"]
