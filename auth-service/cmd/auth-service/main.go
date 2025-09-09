@@ -1,4 +1,3 @@
-// file: cmd/auth-service/main.go
 package main
 
 import (
