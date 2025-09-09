@@ -1,0 +1,18 @@
+env: "local"
+
+grpc:
+  host: "0.0.0.0"
+  port: "50051"
+
+auth:
+  jwt_secret: "local-secret-key"
+  access_token_ttl: 15m
+  refresh_token_ttl: 720h
+  issuer: auth-service
+  audience: ["api-gateway"]
+
+db:
+  db_url: "postgres://administrator:administrator@auth-db:5432/auth?sslmode=disable"
+
+timeouts:
+  service: 5s
