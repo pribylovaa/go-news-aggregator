@@ -125,27 +125,27 @@ func (x *ListNewsResponse) GetNextPageToken() string {
 	return ""
 }
 
-type GetNewsRequest struct {
+type NewsByIDRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetNewsRequest) Reset() {
-	*x = GetNewsRequest{}
+func (x *NewsByIDRequest) Reset() {
+	*x = NewsByIDRequest{}
 	mi := &file_news_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetNewsRequest) String() string {
+func (x *NewsByIDRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetNewsRequest) ProtoMessage() {}
+func (*NewsByIDRequest) ProtoMessage() {}
 
-func (x *GetNewsRequest) ProtoReflect() protoreflect.Message {
+func (x *NewsByIDRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_news_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -157,39 +157,39 @@ func (x *GetNewsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetNewsRequest.ProtoReflect.Descriptor instead.
-func (*GetNewsRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use NewsByIDRequest.ProtoReflect.Descriptor instead.
+func (*NewsByIDRequest) Descriptor() ([]byte, []int) {
 	return file_news_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *GetNewsRequest) GetId() string {
+func (x *NewsByIDRequest) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-type GetNewsResponse struct {
+type NewsByIDResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Item          *News                  `protobuf:"bytes,1,opt,name=item,proto3" json:"item,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetNewsResponse) Reset() {
-	*x = GetNewsResponse{}
+func (x *NewsByIDResponse) Reset() {
+	*x = NewsByIDResponse{}
 	mi := &file_news_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetNewsResponse) String() string {
+func (x *NewsByIDResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetNewsResponse) ProtoMessage() {}
+func (*NewsByIDResponse) ProtoMessage() {}
 
-func (x *GetNewsResponse) ProtoReflect() protoreflect.Message {
+func (x *NewsByIDResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_news_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -201,12 +201,12 @@ func (x *GetNewsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetNewsResponse.ProtoReflect.Descriptor instead.
-func (*GetNewsResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use NewsByIDResponse.ProtoReflect.Descriptor instead.
+func (*NewsByIDResponse) Descriptor() ([]byte, []int) {
 	return file_news_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *GetNewsResponse) GetItem() *News {
+func (x *NewsByIDResponse) GetItem() *News {
 	if x != nil {
 		return x.Item
 	}
@@ -334,10 +334,10 @@ const file_news_proto_rawDesc = "" +
 	"\x10ListNewsResponse\x12 \n" +
 	"\x05items\x18\x01 \x03(\v2\n" +
 	".news.NewsR\x05items\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\" \n" +
-	"\x0eGetNewsRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"1\n" +
-	"\x0fGetNewsResponse\x12\x1e\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"!\n" +
+	"\x0fNewsByIDRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"2\n" +
+	"\x10NewsByIDResponse\x12\x1e\n" +
 	"\x04item\x18\x01 \x01(\v2\n" +
 	".news.NewsR\x04item\"\x93\x02\n" +
 	"\x04News\x12\x0e\n" +
@@ -350,10 +350,10 @@ const file_news_proto_rawDesc = "" +
 	"\timage_url\x18\a \x01(\tR\bimageUrl\x12!\n" +
 	"\fpublished_at\x18\b \x01(\x03R\vpublishedAt\x12\x1d\n" +
 	"\n" +
-	"fetched_at\x18\t \x01(\x03R\tfetchedAt2\x80\x01\n" +
+	"fetched_at\x18\t \x01(\x03R\tfetchedAt2\x83\x01\n" +
 	"\vNewsService\x129\n" +
-	"\bListNews\x12\x15.news.ListNewsRequest\x1a\x16.news.ListNewsResponse\x126\n" +
-	"\aGetNews\x12\x14.news.GetNewsRequest\x1a\x15.news.GetNewsResponseB\x15Z\x13/gen/go/news;newsv1b\x06proto3"
+	"\bListNews\x12\x15.news.ListNewsRequest\x1a\x16.news.ListNewsResponse\x129\n" +
+	"\bNewsByID\x12\x15.news.NewsByIDRequest\x1a\x16.news.NewsByIDResponseB\x15Z\x13/gen/go/news;newsv1b\x06proto3"
 
 var (
 	file_news_proto_rawDescOnce sync.Once
@@ -371,17 +371,17 @@ var file_news_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_news_proto_goTypes = []any{
 	(*ListNewsRequest)(nil),  // 0: news.ListNewsRequest
 	(*ListNewsResponse)(nil), // 1: news.ListNewsResponse
-	(*GetNewsRequest)(nil),   // 2: news.GetNewsRequest
-	(*GetNewsResponse)(nil),  // 3: news.GetNewsResponse
+	(*NewsByIDRequest)(nil),  // 2: news.NewsByIDRequest
+	(*NewsByIDResponse)(nil), // 3: news.NewsByIDResponse
 	(*News)(nil),             // 4: news.News
 }
 var file_news_proto_depIdxs = []int32{
 	4, // 0: news.ListNewsResponse.items:type_name -> news.News
-	4, // 1: news.GetNewsResponse.item:type_name -> news.News
+	4, // 1: news.NewsByIDResponse.item:type_name -> news.News
 	0, // 2: news.NewsService.ListNews:input_type -> news.ListNewsRequest
-	2, // 3: news.NewsService.GetNews:input_type -> news.GetNewsRequest
+	2, // 3: news.NewsService.NewsByID:input_type -> news.NewsByIDRequest
 	1, // 4: news.NewsService.ListNews:output_type -> news.ListNewsResponse
-	3, // 5: news.NewsService.GetNews:output_type -> news.GetNewsResponse
+	3, // 5: news.NewsService.NewsByID:output_type -> news.NewsByIDResponse
 	4, // [4:6] is the sub-list for method output_type
 	2, // [2:4] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name

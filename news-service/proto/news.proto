@@ -6,7 +6,7 @@ option go_package = "/gen/go/news;newsv1";
 
 service NewsService {
     rpc ListNews (ListNewsRequest) returns (ListNewsResponse);
-    rpc GetNews (GetNewsRequest) returns (GetNewsResponse);
+    rpc NewsByID (NewsByIDRequest) returns (NewsByIDResponse);
 }
 
 message ListNewsRequest {
@@ -19,11 +19,11 @@ message ListNewsResponse {
     string next_page_token = 2;
 }
 
-message GetNewsRequest {
+message NewsByIDRequest {
     string id = 1;
 }
 
-message GetNewsResponse {
+message NewsByIDResponse {
     News item = 1;
 }
 
