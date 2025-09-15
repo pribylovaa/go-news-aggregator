@@ -1,10 +1,6 @@
 package service
 
 import (
-	"auth-service/internal/models"
-	"auth-service/internal/storage"
-	"auth-service/pkg/log"
-	"auth-service/pkg/redact"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -15,6 +11,11 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/models"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/pkg/log"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/pkg/redact"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"

@@ -1,12 +1,6 @@
 package grpc
 
 import (
-	authv1 "auth-service/gen/go/auth"
-	"auth-service/internal/config"
-	"auth-service/internal/models"
-	"auth-service/internal/service"
-	"auth-service/internal/storage"
-	"auth-service/mocks"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -14,6 +8,13 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	authv1 "github.com/pribylovaa/go-news-aggregator/auth-service/gen/go/auth"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/config"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/models"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/service"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/mocks"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/golang/mock/gomock"

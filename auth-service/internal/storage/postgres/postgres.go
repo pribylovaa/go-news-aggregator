@@ -2,9 +2,10 @@
 package postgres
 
 import (
-	"auth-service/internal/storage"
 	"context"
 	"fmt"
+
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )

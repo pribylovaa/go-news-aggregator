@@ -19,10 +19,11 @@
 package grpc
 
 import (
-	authv1 "auth-service/gen/go/auth"
-	"auth-service/internal/service"
 	"context"
 	"errors"
+
+	authv1 "github.com/pribylovaa/go-news-aggregator/auth-service/gen/go/auth"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/service"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

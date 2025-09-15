@@ -1,12 +1,13 @@
 package interceptors
 
 import (
-	"auth-service/pkg/log"
 	"context"
 	"log/slog"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/pribylovaa/go-news-aggregator/auth-service/pkg/log"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"

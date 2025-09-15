@@ -1,10 +1,11 @@
 package interceptors
 
 import (
-	"auth-service/pkg/log"
 	"context"
 	"log/slog"
 	"runtime/debug"
+
+	"github.com/pribylovaa/go-news-aggregator/auth-service/pkg/log"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

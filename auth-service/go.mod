@@ -1,4 +1,4 @@
-module auth-service
+module github.com/pribylovaa/go-news-aggregator/auth-service
 
 go 1.24.3
 
