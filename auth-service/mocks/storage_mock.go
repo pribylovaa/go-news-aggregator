@@ -5,10 +5,11 @@
 package mocks
 
 import (
-	models "auth-service/internal/models"
 	context "context"
 	reflect "reflect"
 	time "time"
+
+	models "github.com/pribylovaa/go-news-aggregator/auth-service/internal/models"
 
 	gomock "github.com/golang/mock/gomock"
 	uuid "github.com/google/uuid"

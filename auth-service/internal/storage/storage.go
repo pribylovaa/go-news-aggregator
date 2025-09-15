@@ -2,10 +2,11 @@
 package storage
 
 import (
-	"auth-service/internal/models"
 	"context"
 	"errors"
 	"time"
+
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/models"
 
 	"github.com/google/uuid"
 )

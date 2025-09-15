@@ -1,16 +1,17 @@
 package service
 
 import (
-	"auth-service/internal/config"
-	"auth-service/internal/models"
-	"auth-service/internal/storage"
-	"auth-service/mocks"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/config"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/models"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/mocks"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"

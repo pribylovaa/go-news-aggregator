@@ -1,13 +1,6 @@
 package main
 
 import (
-	authv1 "auth-service/gen/go/auth"
-	"auth-service/internal/config"
-	"auth-service/internal/interceptors"
-	"auth-service/internal/service"
-	"auth-service/internal/storage"
-	"auth-service/internal/storage/postgres"
-	auth "auth-service/internal/transport/grpc"
 	"context"
 	"errors"
 	"flag"
@@ -17,6 +10,14 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	authv1 "github.com/pribylovaa/go-news-aggregator/auth-service/gen/go/auth"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/config"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/interceptors"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/service"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage/postgres"
+	auth "github.com/pribylovaa/go-news-aggregator/auth-service/internal/transport/grpc"
 
 	"google.golang.org/grpc"
 	health "google.golang.org/grpc/health"

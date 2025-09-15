@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"auth-service/internal/models"
-	"auth-service/internal/storage"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/models"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
