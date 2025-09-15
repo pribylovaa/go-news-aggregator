@@ -1,7 +1,7 @@
 package interceptors
 
 import (
-	"auth-service/internal/pkg/log"
+	"auth-service/pkg/log"
 	"context"
 	"log/slog"
 	"time"
