@@ -81,8 +81,8 @@ func TestLoad_WithExplicitPath_OK(t *testing.T) {
 	require.Equal(t, "postgres://user:pass@localhost:5432/db?sslmode=disable", cfg.DB.URL)
 	require.ElementsMatch(t, []string{"https://a.example/rss.xml", "https://b.example/feed"}, cfg.Fetcher.Sources)
 	require.Equal(t, 11*time.Minute, cfg.Fetcher.Interval)
-	require.EqualValues(t, 15, cfg.Limits.Default)
-	require.EqualValues(t, 200, cfg.Limits.Max)
+	require.EqualValues(t, 15, cfg.LimitsConfig.Default)
+	require.EqualValues(t, 200, cfg.LimitsConfig.Max)
 }
 
 // TestLoad_WithExplicitPath_FileDoesNotExist — явный путь на несуществующий файл.
@@ -162,8 +162,8 @@ func TestLoad_EnvOnly_OK(t *testing.T) {
 	require.Equal(t, "7001", cfg.GRPC.Port)
 	require.Equal(t, "postgres://env/db", cfg.DB.URL)
 	require.Equal(t, 13*time.Minute, cfg.Fetcher.Interval)
-	require.EqualValues(t, 21, cfg.Limits.Default)
-	require.EqualValues(t, 333, cfg.Limits.Max)
+	require.EqualValues(t, 21, cfg.LimitsConfig.Default)
+	require.EqualValues(t, 333, cfg.LimitsConfig.Max)
 	require.ElementsMatch(t, []string{"https://a.example/rss.xml", "https://b.example/rss.xml"}, cfg.Fetcher.Sources)
 }
 

@@ -18,11 +18,11 @@ import (
 //  3. файл ./local.yaml из рабочей директории;
 //  4. переменные окружения.
 type Config struct {
-	Env     string        `yaml:"env"     env:"ENV"        env-default:"local"`
-	GRPC    GRPCConfig    `yaml:"grpc"`
-	DB      DBConfig      `yaml:"db"`
-	Fetcher FetcherConfig `yaml:"fetcher"`
-	Limits  LimitsConfig  `yaml:"limits"`
+	Env          string        `yaml:"env"     env:"ENV"        env-default:"local"`
+	GRPC         GRPCConfig    `yaml:"grpc"`
+	DB           DBConfig      `yaml:"db"`
+	Fetcher      FetcherConfig `yaml:"fetcher"`
+	LimitsConfig LimitsConfig  `yaml:"limits"`
 }
 
 // GRPCConfig — сетевые настройки gRPC-сервера.
@@ -139,13 +139,13 @@ func (c *Config) validate() error {
 	if c.Fetcher.Interval < time.Minute {
 		return fmt.Errorf("fetcher.interval must be at least 1m")
 	}
-	if c.Limits.Default <= 0 {
+	if c.LimitsConfig.Default <= 0 {
 		return fmt.Errorf("limits.default must be > 0")
 	}
-	if c.Limits.Max <= 0 {
+	if c.LimitsConfig.Max <= 0 {
 		return fmt.Errorf("limits.max must be > 0")
 	}
-	if c.Limits.Default > c.Limits.Max {
+	if c.LimitsConfig.Default > c.LimitsConfig.Max {
 		return fmt.Errorf("limits.default must be <= limits.max")
 	}
 	return nil
