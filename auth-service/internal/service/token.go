@@ -10,8 +10,8 @@ package service
 
 import (
 	"auth-service/internal/models"
-	"auth-service/internal/pkg/log"
 	"auth-service/internal/storage"
+	"auth-service/pkg/log"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"

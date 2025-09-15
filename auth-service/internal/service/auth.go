@@ -2,9 +2,9 @@ package service
 
 import (
 	"auth-service/internal/models"
-	"auth-service/internal/pkg/log"
-	"auth-service/internal/pkg/redact"
 	"auth-service/internal/storage"
+	"auth-service/pkg/log"
+	"auth-service/pkg/redact"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
