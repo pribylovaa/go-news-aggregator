@@ -9,13 +9,13 @@ import (
 
 var (
 	// ErrNotFound — сущность отсутствует.
-	// Транспорт: codes.NotFound
+	// Транспорт: codes.NotFound.
 	ErrNotFound = errors.New("not found")
 	// ErrInvalidCursor — битый/чужой page_token.
-	// Транспорт: codes.InvalidArgument
+	// Транспорт: codes.InvalidArgument.
 	ErrInvalidCursor = errors.New("invalid cursor")
 	// ErrInvalidArgument - некорректные входные аргументы.
-	// Транспорт: codes.InvalidArgument
+	// Транспорт: codes.InvalidArgument.
 	ErrInvalidArgument = errors.New("invalid argument")
 )
 
