@@ -3,6 +3,7 @@ module github.com/pribylovaa/go-news-aggregator/news-service
 go 1.24.3
 
 require (
+	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/jackc/pgx/v5 v5.7.6
