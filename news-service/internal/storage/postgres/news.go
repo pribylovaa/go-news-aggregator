@@ -69,7 +69,7 @@ func (s *Storage) SaveNews(ctx context.Context, items []models.News) error {
 // page_token — непрозрачная строка (base64url).
 // При некорректном токене возвращает storage.ErrInvalidCursor.
 func (s *Storage) ListNews(ctx context.Context, opts models.ListOptions) (*models.Page, error) {
-	const op = "storage.postgres.List"
+	const op = "storage.postgres.ListNews"
 
 	limit := opts.Limit
 	if limit <= 0 {
