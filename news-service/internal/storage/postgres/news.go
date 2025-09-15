@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"news-service/internal/models"
 	"news-service/internal/storage"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,11 +41,11 @@ func (s *Storage) SaveNews(ctx context.Context, items []models.News) error {
 		image_url = CASE WHEN EXCLUDED.image_url IS NOT NULL AND EXCLUDED.image_url <> ''
 			THEN EXCLUDED.image_url ELSE news.image_url END,
 		long_description = CASE WHEN EXCLUDED.long_description IS NOT NULL AND EXCLUDED.long_description <> ''
-			AND lenght(EXCLUDED.long_description) > lenght(news.long_description)
+			AND length(EXCLUDED.long_description) > length(news.long_description)
 			THEN EXCLUDED.long_description ELSE news.long_description END,
 		category = CASE WHEN EXCLUDED.category IS NOT NULL AND EXCLUDED.category <> ''
 			THEN EXCLUDED.category ELSE news.category END,
-		short_description = CASE WHEN EXCLUDED.short_description IS NOT NULL EXCLUDED.short_description <> ''
+		short_description = CASE WHEN EXCLUDED.short_description IS NOT NULL AND EXCLUDED.short_description <> ''
 			THEN EXCLUDED.short_description ELSE news.short_description END,
 		fetched_at = EXCLUDED.fetched_at
 		`, item.Title, item.Category, item.ShortDescription, item.LongDescription, item.Link,
@@ -205,8 +206,8 @@ func decodePageToken(token string) (time.Time, uuid.UUID, error) {
 		return time.Time{}, uuid.Nil, fmt.Errorf("bad parts")
 	}
 
-	var t int64
-	if _, err := fmt.Sscan(parts[0], "%d", &t); err != nil {
+	t, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
 		return time.Time{}, uuid.Nil, err
 	}
 
