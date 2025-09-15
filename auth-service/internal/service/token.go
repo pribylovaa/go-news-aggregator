@@ -9,9 +9,6 @@
 package service
 
 import (
-	"auth-service/internal/models"
-	"auth-service/internal/storage"
-	"auth-service/pkg/log"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -20,6 +17,10 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/models"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/pkg/log"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package auth;
 
-option go_package = "/gen/go/auth;authv1";
+option go_package = "github.com/pribylovaa/go-news-aggregator/auth-service/gen/go/auth;authv1";
 
 service AuthService {
     rpc RegisterUser (RegisterRequest) returns (AuthResponse);

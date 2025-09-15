@@ -11,9 +11,10 @@
 package service
 
 import (
-	"auth-service/internal/config"
-	"auth-service/internal/storage"
 	"errors"
+
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/config"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage"
 )
 
 var (

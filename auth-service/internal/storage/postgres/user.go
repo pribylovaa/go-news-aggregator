@@ -1,11 +1,12 @@
 package postgres
 
 import (
-	"auth-service/internal/models"
-	"auth-service/internal/storage"
 	"context"
 	"errors"
 	"fmt"
+
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/models"
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgerrcode"
