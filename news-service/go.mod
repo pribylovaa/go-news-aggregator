@@ -1,4 +1,4 @@
-module news-service
+module github.com/pribylovaa/go-news-aggregator/news-service
 
 go 1.24.3
 

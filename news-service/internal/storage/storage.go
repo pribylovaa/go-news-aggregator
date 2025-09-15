@@ -4,7 +4,8 @@ package storage
 import (
 	"context"
 	"errors"
-	"news-service/internal/models"
+
+	"github.com/pribylovaa/go-news-aggregator/news-service/internal/models"
 )
 
 var (

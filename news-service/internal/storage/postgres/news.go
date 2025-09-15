@@ -5,11 +5,12 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"news-service/internal/models"
-	"news-service/internal/storage"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pribylovaa/go-news-aggregator/news-service/internal/models"
+	"github.com/pribylovaa/go-news-aggregator/news-service/internal/storage"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"

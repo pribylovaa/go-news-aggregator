@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"news-service/internal/models"
-	"news-service/internal/storage"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/pribylovaa/go-news-aggregator/news-service/internal/models"
+	"github.com/pribylovaa/go-news-aggregator/news-service/internal/storage"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"

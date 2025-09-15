@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package news;
 
-option go_package = "/gen/go/news;newsv1";
+option go_package = "github.com/pribylovaa/go-news-aggregator/news-service/gen/go/news;newsv1";
 
 service NewsService {
     rpc ListNews (ListNewsRequest) returns (ListNewsResponse);

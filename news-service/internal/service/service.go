@@ -3,8 +3,9 @@ package service
 
 import (
 	"errors"
-	"news-service/internal/config"
-	"news-service/internal/storage"
+
+	"github.com/pribylovaa/go-news-aggregator/news-service/internal/config"
+	"github.com/pribylovaa/go-news-aggregator/news-service/internal/storage"
 )
 
 var (

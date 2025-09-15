@@ -4,7 +4,8 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"news-service/internal/storage"
+
+	"github.com/pribylovaa/go-news-aggregator/news-service/internal/storage"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )

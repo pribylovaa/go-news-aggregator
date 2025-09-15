@@ -353,7 +353,7 @@ const file_news_proto_rawDesc = "" +
 	"fetched_at\x18\t \x01(\x03R\tfetchedAt2\x83\x01\n" +
 	"\vNewsService\x129\n" +
 	"\bListNews\x12\x15.news.ListNewsRequest\x1a\x16.news.ListNewsResponse\x129\n" +
-	"\bNewsByID\x12\x15.news.NewsByIDRequest\x1a\x16.news.NewsByIDResponseB\x15Z\x13/gen/go/news;newsv1b\x06proto3"
+	"\bNewsByID\x12\x15.news.NewsByIDRequest\x1a\x16.news.NewsByIDResponseBJZHgithub.com/pribylovaa/go-news-aggregator/news-service/gen/go/news;newsv1b\x06proto3"
 
 var (
 	file_news_proto_rawDescOnce sync.Once
