@@ -47,11 +47,7 @@ jobs:
           version: latest
           install-mode: goinstall
           args: --timeout=5m
-<<<<<<< HEAD
-          working-directory: auth-service
-=======
           working-directory: auth-service          
->>>>>>> d5f9ef0 (Реализован gRPС-сервис аутентификации/авторизации)
 
   unit-tests:
     needs: lint
