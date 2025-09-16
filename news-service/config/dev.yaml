@@ -8,7 +8,7 @@ db:
   url: "postgres://administrator:administrator@news-db:5432/news?sslmode=disable"
 
 fetcher:
-  sources: ["https://www.marieclaire.ru/rss-feeds/rss.xml", "https://eva.ru/rss/news.xml", "https://www.woman.ru/rss-feeds/rss.xml", "https://www.thevoicemag.ru/rss/utf8/public-feed-all-news.xml", "https://hellomagrussia.ru/rss.xml"]
+  sources: ["https://www.marieclaire.ru/rss-feeds/rss.xml", "https://eva.ru/rss/news.xml", "https://www.woman.ru/rss-feeds/rss.xml", "https://www.thevoicemag.ru/rss/utf8/public-feed-all-news.xml", "https://hellomagrussia.ru/rss.xml", "https://womontrue.ru/feed/"]
   interval: "10m"
 
 limits:
