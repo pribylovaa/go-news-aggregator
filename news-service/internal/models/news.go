@@ -30,7 +30,7 @@ type News struct {
 	ImageURL string
 	// PublishedAt - время публикации новости у источника.
 	PublishedAt time.Time
-	// FetchedAt - время публикации новости в БД.
+	// FetchedAt - время загрузки новости в БД (UTC).
 	FetchedAt time.Time
 }
 
