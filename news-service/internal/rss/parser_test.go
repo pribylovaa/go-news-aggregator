@@ -38,9 +38,10 @@ func mkItem(fields map[string]string) string {
 		case "guid":
 			isPerm := ""
 			value := val
-			if i := strings.Index(val, "|"); i >= 0 {
-				isPerm, value = val[:i], val[i+1:]
+			if left, right, ok := strings.Cut(val, "|"); ok {
+				isPerm, value = left, right
 			}
+
 			if isPerm == "" {
 				b.WriteString(fmt.Sprintf("<guid>%s</guid>\n", value))
 			} else {
@@ -308,8 +309,9 @@ func Test_ParseMany_ContextCancel(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	var got []service.ParseResult
-	for r := range p.ParseMany(ctx, []string{srv.URL + "/slow"}) {
+	urls := []string{srv.URL + "/slow"}
+	got := make([]service.ParseResult, 0, len(urls))
+	for r := range p.ParseMany(ctx, urls) {
 		got = append(got, r)
 	}
 

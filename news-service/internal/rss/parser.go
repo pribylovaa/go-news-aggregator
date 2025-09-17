@@ -120,7 +120,7 @@ func (p *Parser) fetchOne(ctx context.Context, src string) ([]models.News, error
 		return nil, fmt.Errorf("%s: decode: %w", op, err)
 	}
 
-	var output []models.News
+	output := make([]models.News, 0, len(doc.Channel.Items))
 	now := time.Time{}
 	for _, item := range doc.Channel.Items {
 		title := strings.TrimSpace(item.Title)
