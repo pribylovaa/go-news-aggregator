@@ -244,6 +244,10 @@ func canonicalLink(raw string, g guid) string {
 		return str
 	}
 
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return str
+	}
+
 	u.Fragment = ""
 	q := u.Query()
 	for k := range q {
@@ -265,12 +269,14 @@ func parsePubDate(value string) (time.Time, error) {
 	}
 
 	layouts := []string{
-		time.RFC1123Z,
-		time.RFC1123,
-		time.RFC822Z,
-		time.RFC822,
-		time.RFC3339,
-		"Mon, 02 Jan 2006 15:04:05 MST",
+		time.RFC1123Z,                   // Mon, 02 Jan 2006 15:04:05 -0700
+		time.RFC1123,                    // Mon, 02 Jan 2006 15:04:05 MST
+		"Mon, 02 Jan 06 15:04:05 -0700", // Mon, 02 Jan 06 15:04:05 -0700  (2-digit year)
+		"Mon, 02 Jan 06 15:04:05 MST",   // Mon, 02 Jan 06 15:04:05 MST    (2-digit year)
+		time.RFC822Z,                    // 02 Jan 06 15:04 -0700
+		time.RFC822,                     // 02 Jan 06 15:04 MST
+		time.RFC3339,                    // 2006-01-02T15:04:05Z07:00
+		"Mon, 02 Jan 2006 15:04:05 MST", // нестандарт: с аббревиатурой без смещения
 	}
 
 	var lastErr error
