@@ -1,0 +1,58 @@
+version: "3.9"
+
+name: news-service-dev
+
+services:
+  news-db:
+    image: postgres:16-alpine
+    container_name: news-db
+    environment:
+      POSTGRES_DB: news
+      POSTGRES_USER: administrator
+      POSTGRES_PASSWORD: administrator
+    volumes:
+      - data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h 127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    ports:
+      - "5434:5432" 
+    networks: [go-news-net]
+
+  news-migrate:
+    image: migrate/migrate:4
+    container_name: news-migrate
+    depends_on:
+      news-db:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations:ro
+    command: ["-path=/migrations", "-database=postgres://administrator:administrator@news-db:5432/news?sslmode=disable", "up"]
+    restart: "no"
+    networks: [go-news-net]
+
+  news-service:
+    image: ghcr.io/pribylovaa/go-news-aggregator/news-service:latest
+    container_name: news-service
+    depends_on:
+      news-migrate:
+        condition: service_completed_successfully
+    environment:
+      CONFIG_PATH: /etc/news-service/config.yaml
+    volumes:
+      - ./config/dev.yaml:/etc/news-service/config.yaml:ro
+    ports:
+      - "50052:50052"
+    networks: [go-news-net]
+
+volumes:
+  data:
+
+networks:
+  go-news-net:
+    external: true
+    name: go-news-net
+

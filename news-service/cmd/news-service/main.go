@@ -6,19 +6,19 @@ import (
 	"flag"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	authv1 "github.com/pribylovaa/go-news-aggregator/auth-service/gen/go/auth"
-	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/config"
-	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/service"
-	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage"
-	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage/postgres"
-	auth "github.com/pribylovaa/go-news-aggregator/auth-service/internal/transport/grpc"
+	newsv1 "github.com/pribylovaa/go-news-aggregator/news-service/gen/go/news"
+	"github.com/pribylovaa/go-news-aggregator/news-service/internal/config"
+	"github.com/pribylovaa/go-news-aggregator/news-service/internal/rss"
+	"github.com/pribylovaa/go-news-aggregator/news-service/internal/service"
+	"github.com/pribylovaa/go-news-aggregator/news-service/internal/storage/postgres"
+	news "github.com/pribylovaa/go-news-aggregator/news-service/internal/transport/grpc"
 	"github.com/pribylovaa/go-news-aggregator/pkg/interceptors"
-
 	"google.golang.org/grpc"
 	health "google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -34,21 +34,19 @@ const (
 
 func main() {
 	var configPath string
-	flag.StringVar(&configPath, "config", "", "path to config file")
+	flag.StringVar(&configPath, "config", "", "path to config file (overrides CONFIG_PATH env)")
 	flag.Parse()
 
 	cfg := config.MustLoad(configPath)
 
 	log := setupLogger(cfg.Env)
 	slog.SetDefault(log)
-	log.Info("starting application", "env", cfg.Env)
+	log.Info("starting news-service", "env", cfg.Env)
 
-	// Корневой контекст по сигналам.
 	rootCtx, rootCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
-	// Подключение к БД c таймаутом.
 	dbCtx, dbCancel := context.WithTimeout(rootCtx, 10*time.Second)
-	str, err := postgres.New(dbCtx, cfg.DB.DatabaseURL)
+	store, err := postgres.New(dbCtx, cfg.DB.URL)
 	dbCancel()
 	if err != nil {
 		log.Error("postgres_connect_failed", slog.String("err", err.Error()))
@@ -57,11 +55,9 @@ func main() {
 	}
 	log.Info("postgres_connected")
 
-	// Сервис.
-	srvc := service.New(str, cfg.Auth)
+	svc := service.New(store, *cfg)
 	log.Info("service_initialized")
 
-	// gRPC-сервер и интерсепторы.
 	grpcOpts := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
 			interceptors.Recover(log),
@@ -71,46 +67,46 @@ func main() {
 	}
 	grpcServer := grpc.NewServer(grpcOpts...)
 
-	// Health-check сервис.
 	hs := health.NewServer()
 	healthpb.RegisterHealthServer(grpcServer, hs)
 
-	// Регистрация сервиса.
-	authv1.RegisterAuthServiceServer(grpcServer, auth.NewAuthServer(srvc))
+	newsv1.RegisterNewsServiceServer(grpcServer, news.NewNewsServer(svc))
 
-	// Рефлексия — только в local/dev.
 	if cfg.Env == envLocal || cfg.Env == envDev {
 		reflection.Register(grpcServer)
 	}
 
-	hs.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+	httpClient := &http.Client{Timeout: cfg.Timeouts.Service}
+	parser := rss.New(httpClient, 0)
+	go func() {
+		if err := svc.StartIngest(rootCtx, parser); err != nil {
+			log.Error("ingest_start_failed", slog.String("err", err.Error()))
+		}
+	}()
 
-	// Фоновая очистка просроченных refresh-токенов.
-	startRefreshJanitor(rootCtx, str, log, 30*time.Minute)
-
-	// Старт сервера.
 	addr := cfg.GRPC.Addr()
-	listener, err := net.Listen("tcp", addr)
+	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Error("grpc_listen_failed",
 			slog.String("addr", addr),
 			slog.String("err", err.Error()),
 		)
 		rootCancel()
-		str.Close()
+		store.Close()
 		os.Exit(1)
 	}
 	log.Info("grpc_listen_start", slog.String("addr", addr))
 
+	hs.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+
 	serveErrCh := make(chan error, 1)
 	go func() {
-		if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+		if err := grpcServer.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 			serveErrCh <- err
 		}
 		close(serveErrCh)
 	}()
 
-	// Ожидание сигнала завершения или фатальной ошибки сервера.
 	select {
 	case <-rootCtx.Done():
 		log.Info("shutdown_requested")
@@ -120,7 +116,6 @@ func main() {
 		}
 	}
 
-	// Graceful stop с таймаутом.
 	hs.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -138,10 +133,9 @@ func main() {
 		grpcServer.Stop()
 	}
 
-	// Явная очистка перед выходом.
 	shutdownCancel()
 	rootCancel()
-	str.Close()
+	store.Close()
 
 	log.Info("service_stopped")
 	os.Exit(0)
@@ -171,27 +165,4 @@ func setupLogger(env string) *slog.Logger {
 	}
 
 	return log
-}
-
-// startRefreshJanitor запускает фоновую задачу, которая периодически удаляет
-// просроченные refresh-токены из хранилища с помощью storage.DeleteExpiredTokens.
-func startRefreshJanitor(ctx context.Context, storage storage.Storage, log *slog.Logger, period time.Duration) {
-	if period <= 0 {
-		return
-	}
-
-	go func() {
-		t := time.NewTicker(period)
-		defer t.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-t.C:
-				if err := storage.DeleteExpiredTokens(ctx, time.Now().UTC()); err != nil {
-					log.Error("refresh_janitor_failed", slog.String("err", err.Error()))
-				}
-			}
-		}
-	}()
 }

@@ -1,0 +1,48 @@
+run:
+  timeout: 5m
+  tests: true
+  go: "1.24"
+  build-tags: [timetzdata]
+
+issues:
+  exclude-files:
+    - ".*_mock\\.go"
+    - ".*\\.pb\\.go"
+  exclude-dirs:
+    - gen
+    - vendor
+  exclude-rules:
+    - path: _test\.go
+      linters: [gosec]
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - gosimple
+    - gocritic
+    - gosec
+    - revive
+    - misspell
+    - unparam
+    - prealloc
+    - copyloopvar    
+
+linters-settings:
+  revive:
+    severity: warning
+    rules:
+      - name: exported
+        arguments: [ "disableStutteringCheck" ] 
+      - name: if-return
+      - name: early-return
+      - name: errorf
+      - name: unexported-return
+  gosec:
+    severity: medium
+    confidence: medium    
+    excludes:
+      - G101 
+

@@ -25,13 +25,12 @@
 cmd/auth-service/        # main: точка входа
 internal/
   config/                # загрузка конфигурации (cleanenv)
-  interceptors/          # gRPC-интерсепторы: logging, recover, timeout
   models/                # доменные модели 
-  pkg/log, pkg/redact    # утилиты логирования и маскировки секретов
   service/               # бизнес-логика 
   storage/               # интерфейсы хранилища
   storage/postgres/      # реализация Storage на PostgreSQL (pgxpool)
   transport/grpc/        # адаптер к protobuf API (сервер)
+pkg/redact               # утилита маскировки секретов
 gen/go/auth/             # сгенерированные protobuf-типы/клиенты
 migrations/              # SQL-миграции (users, refresh_tokens)
 ```
