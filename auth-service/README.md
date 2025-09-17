@@ -25,7 +25,6 @@
 cmd/auth-service/        # main: точка входа
 internal/
   config/                # загрузка конфигурации (cleanenv)
-  interceptors/          # gRPC-интерсепторы: logging, recover, timeout
   models/                # доменные модели 
   service/               # бизнес-логика 
   storage/               # интерфейсы хранилища
