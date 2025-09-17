@@ -82,7 +82,7 @@ func (p *Parser) ParseMany(ctx context.Context, urls []string) <-chan service.Pa
 
 // fetchOne загружает и парсит RSS по URL.
 func (p *Parser) fetchOne(ctx context.Context, src string) ([]models.News, error) {
-	const op = "rss.fetchOne"
+	const op = "rss/fetchOne"
 
 	lg := log.From(ctx)
 

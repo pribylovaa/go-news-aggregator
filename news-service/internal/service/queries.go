@@ -23,7 +23,7 @@ import (
 // - ErrInvalidCursor — битый/чужой page_token (маппинг storage.ErrInvalidCursor);
 // - прочие ошибки стораджа — обёрнутые и прокинуты наверх.
 func (s *Service) ListNews(ctx context.Context, opts models.ListOptions) (*models.Page, error) {
-	const op = "service.queries.ListNews"
+	const op = "service/queries/ListNews"
 
 	lg := log.From(ctx)
 	lg.Info("list_news_request",
@@ -73,7 +73,7 @@ func (s *Service) ListNews(ctx context.Context, opts models.ListOptions) (*model
 // - ErrNotFound — если запись отсутствует (маппинг storage.ErrNotFound);
 // - прочие ошибки стораджа — обёрнутые и прокинуты наверх.
 func (s *Service) NewsByID(ctx context.Context, id string) (*models.News, error) {
-	const op = "service.queries.NewsByID"
+	const op = "service/queries/NewsByID"
 
 	lg := log.From(ctx)
 	lg.Info("news_by_id_request",

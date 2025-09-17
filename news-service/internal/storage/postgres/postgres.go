@@ -16,7 +16,7 @@ type Storage struct {
 
 // New создает и инициализирует пул соединений к PostgreSQL.
 func New(ctx context.Context, dbURL string) (*Storage, error) {
-	const op = "storage.postgres.New"
+	const op = "storage/postgres/New"
 
 	config, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {

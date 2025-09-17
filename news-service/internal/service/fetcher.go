@@ -16,7 +16,7 @@ import (
 //   - парсинг выполняется через переданный Parser, сохранение — через s.storage.SaveNews;
 //   - останавливается по ctx.
 func (s *Service) StartIngest(ctx context.Context, parser Parser) error {
-	const op = "service.fetcher.StartIngest"
+	const op = "service/fetcher/StartIngest"
 
 	src := s.cfg.Fetcher.Sources
 	interval := s.cfg.Fetcher.Interval
@@ -60,7 +60,7 @@ func (s *Service) StartIngest(ctx context.Context, parser Parser) error {
 
 // ingestOnce — один проход: парсинг всех источников, валидация, сохранение.
 func (s *Service) ingestOnce(ctx context.Context, parser Parser, urls []string) error {
-	const op = "service.fetcher.ingestOnce"
+	const op = "service/fetcher/ingestOnce"
 
 	lg := log.From(ctx)
 	now := time.Now().UTC()

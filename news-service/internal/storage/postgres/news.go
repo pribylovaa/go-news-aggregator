@@ -25,7 +25,7 @@ import (
 //   - published_at — не меняется;
 //   - fetched_at — обновляется всегда.
 func (s *Storage) SaveNews(ctx context.Context, items []models.News) error {
-	const op = "storage.postgres.SaveNews"
+	const op = "storage/postgres/SaveNews"
 
 	if len(items) == 0 {
 		return nil
@@ -70,7 +70,7 @@ func (s *Storage) SaveNews(ctx context.Context, items []models.News) error {
 // page_token — непрозрачная строка (base64url).
 // При некорректном токене возвращает storage.ErrInvalidCursor.
 func (s *Storage) ListNews(ctx context.Context, opts models.ListOptions) (*models.Page, error) {
-	const op = "storage.postgres.ListNews"
+	const op = "storage/postgres/ListNews"
 
 	limit := opts.Limit
 	if limit <= 0 {
@@ -151,7 +151,7 @@ func (s *Storage) ListNews(ctx context.Context, opts models.ListOptions) (*model
 // Если запись не найдена — storage.ErrNotFound.
 // Некорректный формат id трактуется как «нет такой записи».
 func (s *Storage) NewsByID(ctx context.Context, id string) (*models.News, error) {
-	const op = "storage.postgres.NewsByID"
+	const op = "storage/postgres/NewsByID"
 
 	correctID, err := uuid.Parse(strings.TrimSpace(id))
 	if err != nil {
