@@ -105,6 +105,7 @@ message News {
 Расширения: pgcrypto, citext.
 
 Таблица news:
+```bash
 id uuid PK DEFAULT gen_random_uuid()
 title text NOT NULL
 category text NOT NULL DEFAULT ''
@@ -114,8 +115,12 @@ link CITEXT UNIQUE NOT NULL
 image_url text NOT NULL DEFAULT ''
 published_at timestamptz NOT NULL DEFAULT now()
 fetched_at timestamptz NOT NULL DEFAULT now()
+```
 
-Индекс: ix_news_published_id_desc (published_at DESC, id DESC).
+Индекс: 
+```bash
+ix_news_published_id_desc (published_at DESC, id DESC).
+```
 
 Миграции: migrations/1_init_news.up.sql, migrations/1_init_news.down.sql.
 
