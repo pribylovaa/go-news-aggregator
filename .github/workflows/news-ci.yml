@@ -1,0 +1,171 @@
+name: News-service CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env: { GOTOOLCHAIN: auto }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go 1.24.x
+        id: go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          check-latest: true
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-${{ hashFiles('news-service/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-
+            ${{ runner.os }}-go-
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          install-mode: goinstall
+          args: --timeout=5m
+          working-directory: news-service
+
+  unit-tests:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env: { GOTOOLCHAIN: auto }
+    defaults:
+      run:
+        working-directory: news-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go 1.24.x
+        id: go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          check-latest: true
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-${{ hashFiles('news-service/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-
+            ${{ runner.os }}-go-
+
+      - name: Unit tests
+        run: go test ./... -race -count=1 -coverprofile=coverage.out -covermode=atomic
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: news-service/coverage.out
+
+  build-binary:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env: { GOTOOLCHAIN: auto }
+    defaults:
+      run:
+        working-directory: news-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go 1.24.x
+        id: go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          check-latest: true
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-${{ hashFiles('news-service/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-
+            ${{ runner.os }}-go-
+
+      - name: Build news-service binary
+        run: |
+          mkdir -p bin
+          CGO_ENABLED=0 go build -trimpath -tags timetzdata -ldflags "-s -w" -o bin/news-service ./cmd/news-service
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: news-service-bin
+          path: news-service/bin/news-service
+
+  integration-tests:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: news-service
+    env:
+      GOTOOLCHAIN: auto
+      GO_TEST_INTEGRATION: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go 1.24.x
+        id: go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          check-latest: true
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-${{ hashFiles('news-service/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ steps.go.outputs.go-version }}-
+            ${{ runner.os }}-go-
+
+      - name: Docker info
+        run: |
+          docker version
+          docker info
+
+      - name: Integration tests
+        run: go test ./internal/storage/postgres -v -race -count=1
+
