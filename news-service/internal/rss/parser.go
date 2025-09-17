@@ -103,7 +103,14 @@ func (p *Parser) fetchOne(ctx context.Context, src string) ([]models.News, error
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		io.Copy(io.Discard, resp.Body)
+		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+			lg.Debug("drain response body failed",
+				slog.String("op", op),
+				slog.String("url", src),
+				slog.String("err", err.Error()),
+			)
+		}
+
 		return nil, fmt.Errorf("%s: status=%d", op, resp.StatusCode)
 	}
 
