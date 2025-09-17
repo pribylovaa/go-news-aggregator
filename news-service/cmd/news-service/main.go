@@ -38,21 +38,21 @@ func main() {
 	flag.Parse()
 
 	cfg := config.MustLoad(configPath)
+
 	log := setupLogger(cfg.Env)
 	slog.SetDefault(log)
 	log.Info("starting news-service", "env", cfg.Env)
 
-	rootCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
+	rootCtx, rootCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
 	dbCtx, dbCancel := context.WithTimeout(rootCtx, 10*time.Second)
 	store, err := postgres.New(dbCtx, cfg.DB.URL)
 	dbCancel()
 	if err != nil {
 		log.Error("postgres_connect_failed", slog.String("err", err.Error()))
+		rootCancel()
 		os.Exit(1)
 	}
-	defer store.Close()
 	log.Info("postgres_connected")
 
 	svc := service.New(store, *cfg)
@@ -87,7 +87,12 @@ func main() {
 	addr := cfg.GRPC.Addr()
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Error("grpc_listen_failed", slog.String("addr", addr), slog.String("err", err.Error()))
+		log.Error("grpc_listen_failed",
+			slog.String("addr", addr),
+			slog.String("err", err.Error()),
+		)
+		rootCancel()
+		store.Close()
 		os.Exit(1)
 	}
 	log.Info("grpc_listen_start", slog.String("addr", addr))
@@ -112,9 +117,7 @@ func main() {
 	}
 
 	hs.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
-
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
 
 	done := make(chan struct{})
 	go func() {
@@ -130,7 +133,12 @@ func main() {
 		grpcServer.Stop()
 	}
 
+	shutdownCancel()
+	rootCancel()
+	store.Close()
+
 	log.Info("service_stopped")
+	os.Exit(0)
 }
 
 // setupLogger настраивает slog по окружению.
