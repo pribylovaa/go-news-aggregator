@@ -40,6 +40,8 @@ fetcher:
 limits:
   default: 15
   max: 200
+timeouts:
+  service: 5s
 `
 
 // Минимально валидный YAML (только обязательные поля).
@@ -83,6 +85,7 @@ func TestLoad_WithExplicitPath_OK(t *testing.T) {
 	require.Equal(t, 11*time.Minute, cfg.Fetcher.Interval)
 	require.EqualValues(t, 15, cfg.LimitsConfig.Default)
 	require.EqualValues(t, 200, cfg.LimitsConfig.Max)
+	require.EqualValues(t, 5*time.Second, cfg.Timeouts.Service)
 }
 
 // TestLoad_WithExplicitPath_FileDoesNotExist — явный путь на несуществующий файл.
@@ -121,7 +124,7 @@ func TestLoad_WithCONFIG_PATH_OK(t *testing.T) {
 	// Берутся дефолты для остальных полей.
 	require.Equal(t, "local", cfg.Env)
 	require.Equal(t, "0.0.0.0", cfg.GRPC.Host)
-	require.Equal(t, "50051", cfg.GRPC.Port)
+	require.Equal(t, "50052", cfg.GRPC.Port)
 }
 
 // TestLoad_WithLocalYAML_OK — если нет CONFIG_PATH, берётся ./local.yaml.
@@ -153,6 +156,7 @@ func TestLoad_EnvOnly_OK(t *testing.T) {
 	t.Setenv("GRPC_PORT", "7001")
 	t.Setenv("DEFAULT_LIMIT", "21")
 	t.Setenv("MAX_LIMIT", "333")
+	t.Setenv("SERVICE", "5s")
 
 	cfg, err := Load("")
 	require.NoError(t, err)
@@ -164,6 +168,7 @@ func TestLoad_EnvOnly_OK(t *testing.T) {
 	require.Equal(t, 13*time.Minute, cfg.Fetcher.Interval)
 	require.EqualValues(t, 21, cfg.LimitsConfig.Default)
 	require.EqualValues(t, 333, cfg.LimitsConfig.Max)
+	require.EqualValues(t, 5*time.Second, cfg.Timeouts.Service)
 	require.ElementsMatch(t, []string{"https://a.example/rss.xml", "https://b.example/rss.xml"}, cfg.Fetcher.Sources)
 }
 
