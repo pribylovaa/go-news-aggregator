@@ -9,7 +9,7 @@ import (
 	"github.com/pribylovaa/go-news-aggregator/news-service/internal/models"
 	"github.com/pribylovaa/go-news-aggregator/news-service/internal/storage"
 
-	"github.com/pribylovaa/go-news-aggregator/auth-service/pkg/log"
+	"github.com/pribylovaa/go-news-aggregator/pkg/log"
 )
 
 // ListNews возвращает страницу новостей с нормализацией лимита по конфигу.

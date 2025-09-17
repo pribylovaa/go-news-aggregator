@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pribylovaa/go-news-aggregator/auth-service/pkg/log"
+	"github.com/pribylovaa/go-news-aggregator/pkg/log"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"

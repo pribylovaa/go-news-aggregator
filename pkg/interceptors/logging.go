@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/pribylovaa/go-news-aggregator/auth-service/pkg/log"
+	"github.com/pribylovaa/go-news-aggregator/pkg/log"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"

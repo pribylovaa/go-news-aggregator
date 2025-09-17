@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/pribylovaa/go-news-aggregator/auth-service/pkg/log"
 	"github.com/pribylovaa/go-news-aggregator/news-service/internal/models"
+	"github.com/pribylovaa/go-news-aggregator/pkg/log"
 )
 
 // StartIngest запускает периодический опрос источников из конфига s.cfg.Fetcher.

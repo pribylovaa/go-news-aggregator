@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"runtime/debug"
 
-	"github.com/pribylovaa/go-news-aggregator/auth-service/pkg/log"
+	"github.com/pribylovaa/go-news-aggregator/pkg/log"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

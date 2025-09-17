@@ -14,8 +14,8 @@ import (
 
 	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/models"
 	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage"
-	"github.com/pribylovaa/go-news-aggregator/auth-service/pkg/log"
 	"github.com/pribylovaa/go-news-aggregator/auth-service/pkg/redact"
+	"github.com/pribylovaa/go-news-aggregator/pkg/log"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"

@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pribylovaa/go-news-aggregator/auth-service/pkg/log"
 	"github.com/pribylovaa/go-news-aggregator/news-service/internal/models"
 	"github.com/pribylovaa/go-news-aggregator/news-service/internal/service"
+	"github.com/pribylovaa/go-news-aggregator/pkg/log"
 )
 
 // Parser реализует service.Parser для RSS 2.0.

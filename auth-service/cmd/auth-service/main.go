@@ -13,11 +13,11 @@ import (
 
 	authv1 "github.com/pribylovaa/go-news-aggregator/auth-service/gen/go/auth"
 	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/config"
-	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/interceptors"
 	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/service"
 	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage"
 	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage/postgres"
 	auth "github.com/pribylovaa/go-news-aggregator/auth-service/internal/transport/grpc"
+	"github.com/pribylovaa/go-news-aggregator/pkg/interceptors"
 
 	"google.golang.org/grpc"
 	health "google.golang.org/grpc/health"
