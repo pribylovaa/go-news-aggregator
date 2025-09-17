@@ -14,3 +14,6 @@ fetcher:
 limits:
   default: 12
   max: 300
+
+timeouts:
+  service: 5s

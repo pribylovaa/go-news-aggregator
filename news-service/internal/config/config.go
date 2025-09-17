@@ -23,6 +23,12 @@ type Config struct {
 	DB           DBConfig      `yaml:"db"`
 	Fetcher      FetcherConfig `yaml:"fetcher"`
 	LimitsConfig LimitsConfig  `yaml:"limits"`
+	Timeouts     TimeoutConfig `yaml:"timeouts"`
+}
+
+// TimeoutConfig — таймауты сервиса.
+type TimeoutConfig struct {
+	Service time.Duration `yaml:"service" env:"SERVICE" env-default:"5s"`
 }
 
 // GRPCConfig — сетевые настройки gRPC-сервера.
