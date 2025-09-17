@@ -28,7 +28,7 @@ type Config struct {
 // GRPCConfig — сетевые настройки gRPC-сервера.
 type GRPCConfig struct {
 	Host string `yaml:"host" env:"GRPC_HOST" env-default:"0.0.0.0"`
-	Port string `yaml:"port" env:"GRPC_PORT" env-default:"50051"`
+	Port string `yaml:"port" env:"GRPC_PORT" env-default:"50052"`
 }
 
 // Addr возвращает адрес в формате host:port.
@@ -53,7 +53,7 @@ type LimitsConfig struct {
 	// Применяется при запросе с limit=0.
 	Default int32 `yaml:"default" env:"DEFAULT_LIMIT" env-default:"12"`
 	// Верхняя граница для limit.
-	Max int32 `yaml:"max" env:"MAX_LIMIT" env-default:"100"`
+	Max int32 `yaml:"max" env:"MAX_LIMIT" env-default:"300"`
 }
 
 // MustLoad — обёртка над Load с panic при ошибке.
