@@ -391,7 +391,7 @@ type AvatarUploadURLRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	ContentType   string                 `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
-	ContentLength uint32                 `protobuf:"varint,3,opt,name=content_length,json=contentLength,proto3" json:"content_length,omitempty"`
+	ContentLength uint64                 `protobuf:"varint,3,opt,name=content_length,json=contentLength,proto3" json:"content_length,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -440,7 +440,7 @@ func (x *AvatarUploadURLRequest) GetContentType() string {
 	return ""
 }
 
-func (x *AvatarUploadURLRequest) GetContentLength() uint32 {
+func (x *AvatarUploadURLRequest) GetContentLength() uint64 {
 	if x != nil {
 		return x.ContentLength
 	}
@@ -606,7 +606,7 @@ const file_user_proto_rawDesc = "" +
 	"\x16AvatarUploadURLRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12%\n" +
-	"\x0econtent_length\x18\x03 \x01(\rR\rcontentLength\"\xa6\x02\n" +
+	"\x0econtent_length\x18\x03 \x01(\x04R\rcontentLength\"\xa6\x02\n" +
 	"\x17AvatarUploadURLResponse\x12\x1d\n" +
 	"\n" +
 	"upload_url\x18\x01 \x01(\tR\tuploadUrl\x12\x1d\n" +

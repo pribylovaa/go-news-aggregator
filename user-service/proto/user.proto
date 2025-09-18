@@ -63,7 +63,7 @@ message UpdateProfileRequest {
 message AvatarUploadURLRequest {
     string user_id = 1;
     string content_type = 2;
-    uint32 content_length = 3;
+    uint64 content_length = 3;
 }
 
 message AvatarUploadURLResponse {

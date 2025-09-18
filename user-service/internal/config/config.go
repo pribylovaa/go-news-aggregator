@@ -38,11 +38,12 @@ type PostgresConfig struct {
 }
 
 type S3Config struct {
-	Endpoint     string        `yaml:"endpoint" env:"S3_ENDPOINT" env-required:"true"`
-	RootUser     string        `yaml:"root_user" env:"S3_ROOT_USER" env-required:"true"`
-	RootPassword string        `yaml:"root_password" env:"S3_ROOT_PASSWORD" env-required:"true"`
-	Bucket       string        `yaml:"bucket" env:"S3_BUCKET" env-required:"true"`
-	PresignTTL   time.Duration `yaml:"presign_ttl" env:"S3_PRESIGN_TTL" env-default:"10m"`
+	Endpoint      string        `yaml:"endpoint" env:"S3_ENDPOINT" env-required:"true"`
+	RootUser      string        `yaml:"root_user" env:"S3_ROOT_USER" env-required:"true"`
+	RootPassword  string        `yaml:"root_password" env:"S3_ROOT_PASSWORD" env-required:"true"`
+	Bucket        string        `yaml:"bucket" env:"S3_BUCKET" env-required:"true"`
+	PresignTTL    time.Duration `yaml:"presign_ttl" env:"S3_PRESIGN_TTL" env-default:"10m"`
+	PublicBaseURL string        `yaml:"public_base_url" env:"S3_PUBLIC_BASE_URL" env-default:""`
 }
 
 type AvatarConfig struct {
