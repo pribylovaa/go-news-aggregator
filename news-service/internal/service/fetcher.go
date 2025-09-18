@@ -100,7 +100,10 @@ func (s *Service) ingestOnce(ctx context.Context, parser Parser, urls []string) 
 		return nil
 	}
 
-	if err := s.storage.SaveNews(ctx, batch); err != nil {
+	saveCtx, cancel := context.WithTimeout(ctx, s.cfg.Timeouts.Service)
+	defer cancel()
+
+	if err := s.storage.SaveNews(saveCtx, batch); err != nil {
 		return fmt.Errorf("%s: save_news: %w", op, err)
 	}
 
