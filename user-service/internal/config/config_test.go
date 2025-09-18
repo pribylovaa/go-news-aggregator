@@ -325,3 +325,38 @@ func TestMustLoad_PanicsOnError(t *testing.T) {
 		_ = MustLoad(filepath.Join(t.TempDir(), "nope.yaml"))
 	})
 }
+
+func TestLoad_ZeroPresignTTL_UsesDefault(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	cfgPath := writeFile(t, dir, "ttl_zero.yaml", `
+postgres: { url: "postgres://x" }
+s3: {
+  endpoint: "http://minio:9000",
+  root_user: "root",
+  root_password: "rootpass",
+  bucket: "avatars",
+  presign_ttl: "0s"
+}
+avatar: { max_size_bytes: 1, allowed_content_types: ["image/png"] }
+`)
+	cfg := MustLoad(cfgPath)
+	require.Equal(t, 10*time.Minute, cfg.S3.PresignTTL)
+}
+
+func TestLoad_ZeroAvatarSize_UsesDefault(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	cfgPath := writeFile(t, dir, "avatar_zero.yaml", `
+postgres: { url: "postgres://x" }
+s3: {
+  endpoint: "http://minio:9000",
+  root_user: "root",
+  root_password: "rootpass",
+  bucket: "avatars"
+}
+avatar: { max_size_bytes: 0, allowed_content_types: ["image/jpeg"] }
+`)
+	cfg := MustLoad(cfgPath)
+	require.Equal(t, int64(5242880), cfg.Avatar.MaxSizeBytes)
+}
