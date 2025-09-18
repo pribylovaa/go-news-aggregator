@@ -4,5 +4,5 @@ use (
 	.
 	./auth-service
 	./news-service
-	./user-service
+	./users-service
 )

@@ -1,4 +1,4 @@
-module github.com/pribylovaa/go-news-aggregator/user-service
+module github.com/pribylovaa/go-news-aggregator/users-service
 
 go 1.24.3
 

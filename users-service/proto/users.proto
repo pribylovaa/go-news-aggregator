@@ -1,12 +1,12 @@
 syntax = "proto3";
 
-package user.v1;
+package users.v1;
 
-option go_package = "github.com/pribylovaa/go-news-aggregator/proto/user/v1;userv1";
+option go_package = "github.com/pribylovaa/go-news-aggregator/proto/users/v1;usersv1";
 
 import "google/protobuf/field_mask.proto";
 
-service UserService {
+service UsersService {
     // Получить профиль по user_id.
     rpc ProfileByID(ProfileByIDRequest) returns (Profile);
     // Создать профиль (обычно сразу после регистрации).
