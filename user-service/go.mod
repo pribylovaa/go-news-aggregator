@@ -3,6 +3,7 @@ module github.com/pribylovaa/go-news-aggregator/user-service
 go 1.24.3
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.75.1
