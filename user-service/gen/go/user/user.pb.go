@@ -9,6 +9,7 @@ package userv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -21,6 +22,58 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type Gender int32
+
+const (
+	Gender_GENDER_UNSPECIFIED Gender = 0
+	Gender_MALE               Gender = 1
+	Gender_FEMALE             Gender = 2
+	Gender_OTHER              Gender = 3
+)
+
+// Enum value maps for Gender.
+var (
+	Gender_name = map[int32]string{
+		0: "GENDER_UNSPECIFIED",
+		1: "MALE",
+		2: "FEMALE",
+		3: "OTHER",
+	}
+	Gender_value = map[string]int32{
+		"GENDER_UNSPECIFIED": 0,
+		"MALE":               1,
+		"FEMALE":             2,
+		"OTHER":              3,
+	}
+)
+
+func (x Gender) Enum() *Gender {
+	p := new(Gender)
+	*p = x
+	return p
+}
+
+func (x Gender) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Gender) Descriptor() protoreflect.EnumDescriptor {
+	return file_user_proto_enumTypes[0].Descriptor()
+}
+
+func (Gender) Type() protoreflect.EnumType {
+	return &file_user_proto_enumTypes[0]
+}
+
+func (x Gender) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Gender.Descriptor instead.
+func (Gender) EnumDescriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{0}
+}
+
 type Profile struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -31,7 +84,7 @@ type Profile struct {
 	CreatedAt     int64                  `protobuf:"varint,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     int64                  `protobuf:"varint,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	Country       string                 `protobuf:"bytes,8,opt,name=country,proto3" json:"country,omitempty"`
-	Gender        string                 `protobuf:"bytes,9,opt,name=gender,proto3" json:"gender,omitempty"`
+	Gender        Gender                 `protobuf:"varint,9,opt,name=gender,proto3,enum=user.v1.Gender" json:"gender,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -122,11 +175,11 @@ func (x *Profile) GetCountry() string {
 	return ""
 }
 
-func (x *Profile) GetGender() string {
+func (x *Profile) GetGender() Gender {
 	if x != nil {
 		return x.Gender
 	}
-	return ""
+	return Gender_GENDER_UNSPECIFIED
 }
 
 type ProfileByIDRequest struct {
@@ -179,7 +232,7 @@ type CreateProfileRequest struct {
 	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
 	Age           uint32                 `protobuf:"varint,3,opt,name=age,proto3" json:"age,omitempty"`
 	Country       string                 `protobuf:"bytes,4,opt,name=country,proto3" json:"country,omitempty"`
-	Gender        string                 `protobuf:"bytes,5,opt,name=gender,proto3" json:"gender,omitempty"`
+	Gender        Gender                 `protobuf:"varint,5,opt,name=gender,proto3,enum=user.v1.Gender" json:"gender,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -242,20 +295,22 @@ func (x *CreateProfileRequest) GetCountry() string {
 	return ""
 }
 
-func (x *CreateProfileRequest) GetGender() string {
+func (x *CreateProfileRequest) GetGender() Gender {
 	if x != nil {
 		return x.Gender
 	}
-	return ""
+	return Gender_GENDER_UNSPECIFIED
 }
 
 type UpdateProfileRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
-	Age           uint32                 `protobuf:"varint,3,opt,name=age,proto3" json:"age,omitempty"`
-	Country       string                 `protobuf:"bytes,4,opt,name=country,proto3" json:"country,omitempty"`
-	Gender        string                 `protobuf:"bytes,5,opt,name=gender,proto3" json:"gender,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	UserId   string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Username string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Age      uint32                 `protobuf:"varint,3,opt,name=age,proto3" json:"age,omitempty"`
+	Country  string                 `protobuf:"bytes,4,opt,name=country,proto3" json:"country,omitempty"`
+	Gender   Gender                 `protobuf:"varint,5,opt,name=gender,proto3,enum=user.v1.Gender" json:"gender,omitempty"`
+	// Маска с перечислением обновляемых полей: "username,age,country,gender".
+	UpdateMask    *fieldmaskpb.FieldMask `protobuf:"bytes,6,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -318,11 +373,18 @@ func (x *UpdateProfileRequest) GetCountry() string {
 	return ""
 }
 
-func (x *UpdateProfileRequest) GetGender() string {
+func (x *UpdateProfileRequest) GetGender() Gender {
 	if x != nil {
 		return x.Gender
 	}
-	return ""
+	return Gender_GENDER_UNSPECIFIED
+}
+
+func (x *UpdateProfileRequest) GetUpdateMask() *fieldmaskpb.FieldMask {
+	if x != nil {
+		return x.UpdateMask
+	}
+	return nil
 }
 
 type AvatarUploadURLRequest struct {
@@ -386,12 +448,13 @@ func (x *AvatarUploadURLRequest) GetContentLength() uint32 {
 }
 
 type AvatarUploadURLResponse struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	UploadUrl      string                 `protobuf:"bytes,1,opt,name=upload_url,json=uploadUrl,proto3" json:"upload_url,omitempty"`
-	AvatarKey      string                 `protobuf:"bytes,2,opt,name=avatar_key,json=avatarKey,proto3" json:"avatar_key,omitempty"`
-	ExpiresSeconds uint32                 `protobuf:"varint,3,opt,name=expires_seconds,json=expiresSeconds,proto3" json:"expires_seconds,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	UploadUrl       string                 `protobuf:"bytes,1,opt,name=upload_url,json=uploadUrl,proto3" json:"upload_url,omitempty"`
+	AvatarKey       string                 `protobuf:"bytes,2,opt,name=avatar_key,json=avatarKey,proto3" json:"avatar_key,omitempty"`
+	ExpiresSeconds  uint32                 `protobuf:"varint,3,opt,name=expires_seconds,json=expiresSeconds,proto3" json:"expires_seconds,omitempty"`
+	RequiredHeaders map[string]string      `protobuf:"bytes,4,rep,name=required_headers,json=requiredHeaders,proto3" json:"required_headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *AvatarUploadURLResponse) Reset() {
@@ -443,6 +506,13 @@ func (x *AvatarUploadURLResponse) GetExpiresSeconds() uint32 {
 		return x.ExpiresSeconds
 	}
 	return 0
+}
+
+func (x *AvatarUploadURLResponse) GetRequiredHeaders() map[string]string {
+	if x != nil {
+		return x.RequiredHeaders
+	}
+	return nil
 }
 
 type ConfirmAvatarUploadRequest struct {
@@ -502,7 +572,7 @@ var File_user_proto protoreflect.FileDescriptor
 const file_user_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"user.proto\x12\auser.v1\"\xfe\x01\n" +
+	"user.proto\x12\auser.v1\x1a google/protobuf/field_mask.proto\"\x8f\x02\n" +
 	"\aProfile\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x10\n" +
@@ -515,36 +585,48 @@ const file_user_proto_rawDesc = "" +
 	"created_at\x18\x06 \x01(\x03R\tcreatedAt\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\a \x01(\x03R\tupdatedAt\x12\x18\n" +
-	"\acountry\x18\b \x01(\tR\acountry\x12\x16\n" +
-	"\x06gender\x18\t \x01(\tR\x06gender\"-\n" +
+	"\acountry\x18\b \x01(\tR\acountry\x12'\n" +
+	"\x06gender\x18\t \x01(\x0e2\x0f.user.v1.GenderR\x06gender\"-\n" +
 	"\x12ProfileByIDRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x8f\x01\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xa0\x01\n" +
 	"\x14CreateProfileRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x10\n" +
 	"\x03age\x18\x03 \x01(\rR\x03age\x12\x18\n" +
-	"\acountry\x18\x04 \x01(\tR\acountry\x12\x16\n" +
-	"\x06gender\x18\x05 \x01(\tR\x06gender\"\x8f\x01\n" +
+	"\acountry\x18\x04 \x01(\tR\acountry\x12'\n" +
+	"\x06gender\x18\x05 \x01(\x0e2\x0f.user.v1.GenderR\x06gender\"\xdd\x01\n" +
 	"\x14UpdateProfileRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x10\n" +
 	"\x03age\x18\x03 \x01(\rR\x03age\x12\x18\n" +
-	"\acountry\x18\x04 \x01(\tR\acountry\x12\x16\n" +
-	"\x06gender\x18\x05 \x01(\tR\x06gender\"{\n" +
+	"\acountry\x18\x04 \x01(\tR\acountry\x12'\n" +
+	"\x06gender\x18\x05 \x01(\x0e2\x0f.user.v1.GenderR\x06gender\x12;\n" +
+	"\vupdate_mask\x18\x06 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
+	"updateMask\"{\n" +
 	"\x16AvatarUploadURLRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12%\n" +
-	"\x0econtent_length\x18\x03 \x01(\rR\rcontentLength\"\x80\x01\n" +
+	"\x0econtent_length\x18\x03 \x01(\rR\rcontentLength\"\xa6\x02\n" +
 	"\x17AvatarUploadURLResponse\x12\x1d\n" +
 	"\n" +
 	"upload_url\x18\x01 \x01(\tR\tuploadUrl\x12\x1d\n" +
 	"\n" +
 	"avatar_key\x18\x02 \x01(\tR\tavatarKey\x12'\n" +
-	"\x0fexpires_seconds\x18\x03 \x01(\rR\x0eexpiresSeconds\"T\n" +
+	"\x0fexpires_seconds\x18\x03 \x01(\rR\x0eexpiresSeconds\x12`\n" +
+	"\x10required_headers\x18\x04 \x03(\v25.user.v1.AvatarUploadURLResponse.RequiredHeadersEntryR\x0frequiredHeaders\x1aB\n" +
+	"\x14RequiredHeadersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"T\n" +
 	"\x1aConfirmAvatarUploadRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
 	"\n" +
-	"avatar_key\x18\x02 \x01(\tR\tavatarKey2\xf3\x02\n" +
+	"avatar_key\x18\x02 \x01(\tR\tavatarKey*A\n" +
+	"\x06Gender\x12\x16\n" +
+	"\x12GENDER_UNSPECIFIED\x10\x00\x12\b\n" +
+	"\x04MALE\x10\x01\x12\n" +
+	"\n" +
+	"\x06FEMALE\x10\x02\x12\t\n" +
+	"\x05OTHER\x10\x032\xf3\x02\n" +
 	"\vUserService\x12<\n" +
 	"\vProfileByID\x12\x1b.user.v1.ProfileByIDRequest\x1a\x10.user.v1.Profile\x12@\n" +
 	"\rCreateProfile\x12\x1d.user.v1.CreateProfileRequest\x1a\x10.user.v1.Profile\x12@\n" +
@@ -564,32 +646,41 @@ func file_user_proto_rawDescGZIP() []byte {
 	return file_user_proto_rawDescData
 }
 
-var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_user_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_user_proto_goTypes = []any{
-	(*Profile)(nil),                    // 0: user.v1.Profile
-	(*ProfileByIDRequest)(nil),         // 1: user.v1.ProfileByIDRequest
-	(*CreateProfileRequest)(nil),       // 2: user.v1.CreateProfileRequest
-	(*UpdateProfileRequest)(nil),       // 3: user.v1.UpdateProfileRequest
-	(*AvatarUploadURLRequest)(nil),     // 4: user.v1.AvatarUploadURLRequest
-	(*AvatarUploadURLResponse)(nil),    // 5: user.v1.AvatarUploadURLResponse
-	(*ConfirmAvatarUploadRequest)(nil), // 6: user.v1.ConfirmAvatarUploadRequest
+	(Gender)(0),                        // 0: user.v1.Gender
+	(*Profile)(nil),                    // 1: user.v1.Profile
+	(*ProfileByIDRequest)(nil),         // 2: user.v1.ProfileByIDRequest
+	(*CreateProfileRequest)(nil),       // 3: user.v1.CreateProfileRequest
+	(*UpdateProfileRequest)(nil),       // 4: user.v1.UpdateProfileRequest
+	(*AvatarUploadURLRequest)(nil),     // 5: user.v1.AvatarUploadURLRequest
+	(*AvatarUploadURLResponse)(nil),    // 6: user.v1.AvatarUploadURLResponse
+	(*ConfirmAvatarUploadRequest)(nil), // 7: user.v1.ConfirmAvatarUploadRequest
+	nil,                                // 8: user.v1.AvatarUploadURLResponse.RequiredHeadersEntry
+	(*fieldmaskpb.FieldMask)(nil),      // 9: google.protobuf.FieldMask
 }
 var file_user_proto_depIdxs = []int32{
-	1, // 0: user.v1.UserService.ProfileByID:input_type -> user.v1.ProfileByIDRequest
-	2, // 1: user.v1.UserService.CreateProfile:input_type -> user.v1.CreateProfileRequest
-	3, // 2: user.v1.UserService.UpdateProfile:input_type -> user.v1.UpdateProfileRequest
-	4, // 3: user.v1.UserService.AvatarUploadURL:input_type -> user.v1.AvatarUploadURLRequest
-	6, // 4: user.v1.UserService.ConfirmAvatarUpload:input_type -> user.v1.ConfirmAvatarUploadRequest
-	0, // 5: user.v1.UserService.ProfileByID:output_type -> user.v1.Profile
-	0, // 6: user.v1.UserService.CreateProfile:output_type -> user.v1.Profile
-	0, // 7: user.v1.UserService.UpdateProfile:output_type -> user.v1.Profile
-	5, // 8: user.v1.UserService.AvatarUploadURL:output_type -> user.v1.AvatarUploadURLResponse
-	0, // 9: user.v1.UserService.ConfirmAvatarUpload:output_type -> user.v1.Profile
-	5, // [5:10] is the sub-list for method output_type
-	0, // [0:5] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0,  // 0: user.v1.Profile.gender:type_name -> user.v1.Gender
+	0,  // 1: user.v1.CreateProfileRequest.gender:type_name -> user.v1.Gender
+	0,  // 2: user.v1.UpdateProfileRequest.gender:type_name -> user.v1.Gender
+	9,  // 3: user.v1.UpdateProfileRequest.update_mask:type_name -> google.protobuf.FieldMask
+	8,  // 4: user.v1.AvatarUploadURLResponse.required_headers:type_name -> user.v1.AvatarUploadURLResponse.RequiredHeadersEntry
+	2,  // 5: user.v1.UserService.ProfileByID:input_type -> user.v1.ProfileByIDRequest
+	3,  // 6: user.v1.UserService.CreateProfile:input_type -> user.v1.CreateProfileRequest
+	4,  // 7: user.v1.UserService.UpdateProfile:input_type -> user.v1.UpdateProfileRequest
+	5,  // 8: user.v1.UserService.AvatarUploadURL:input_type -> user.v1.AvatarUploadURLRequest
+	7,  // 9: user.v1.UserService.ConfirmAvatarUpload:input_type -> user.v1.ConfirmAvatarUploadRequest
+	1,  // 10: user.v1.UserService.ProfileByID:output_type -> user.v1.Profile
+	1,  // 11: user.v1.UserService.CreateProfile:output_type -> user.v1.Profile
+	1,  // 12: user.v1.UserService.UpdateProfile:output_type -> user.v1.Profile
+	6,  // 13: user.v1.UserService.AvatarUploadURL:output_type -> user.v1.AvatarUploadURLResponse
+	1,  // 14: user.v1.UserService.ConfirmAvatarUpload:output_type -> user.v1.Profile
+	10, // [10:15] is the sub-list for method output_type
+	5,  // [5:10] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_user_proto_init() }
@@ -602,13 +693,14 @@ func file_user_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_proto_rawDesc), len(file_user_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   7,
+			NumEnums:      1,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_user_proto_goTypes,
 		DependencyIndexes: file_user_proto_depIdxs,
+		EnumInfos:         file_user_proto_enumTypes,
 		MessageInfos:      file_user_proto_msgTypes,
 	}.Build()
 	File_user_proto = out.File

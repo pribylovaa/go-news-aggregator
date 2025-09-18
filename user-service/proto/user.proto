@@ -4,6 +4,8 @@ package user.v1;
 
 option go_package = "github.com/pribylovaa/go-news-aggregator/proto/user/v1;userv1";
 
+import "google/protobuf/field_mask.proto";
+
 service UserService {
     // Получить профиль по user_id.
     rpc ProfileByID(ProfileByIDRequest) returns (Profile);
@@ -17,6 +19,13 @@ service UserService {
     rpc ConfirmAvatarUpload(ConfirmAvatarUploadRequest) returns (Profile);
 }
 
+enum Gender {
+    GENDER_UNSPECIFIED = 0;
+    MALE = 1;
+    FEMALE = 2;
+    OTHER = 3;
+}
+
 message Profile {
     string user_id = 1;                         
     string username = 2;                        
@@ -26,7 +35,7 @@ message Profile {
     int64 created_at = 6;
     int64 updated_at = 7;
     string country = 8;                         
-    string gender = 9;                     
+    Gender gender = 9;                     
 }
 
 message ProfileByIDRequest {
@@ -38,7 +47,7 @@ message CreateProfileRequest {
     string username = 2;
     uint32 age = 3;
     string country = 4;  
-    string gender = 5;
+    Gender gender = 5;
 }
 
 message UpdateProfileRequest {
@@ -46,7 +55,9 @@ message UpdateProfileRequest {
   string username = 2;
   uint32 age = 3;
   string country = 4;   
-  string gender = 5;
+  Gender gender = 5;
+  // Маска с перечислением обновляемых полей: "username,age,country,gender".
+  google.protobuf.FieldMask update_mask = 6;
 }
 
 message AvatarUploadURLRequest {
@@ -58,7 +69,8 @@ message AvatarUploadURLRequest {
 message AvatarUploadURLResponse {
     string upload_url = 1;          
     string avatar_key = 2;          
-    uint32 expires_seconds = 3;     
+    uint32 expires_seconds = 3;
+    map<string,string> required_headers = 4;
 }
 
 message ConfirmAvatarUploadRequest {
