@@ -39,8 +39,8 @@ type PostgresConfig struct {
 
 type S3Config struct {
 	Endpoint     string        `yaml:"endpoint" env:"S3_ENDPOINT" env-required:"true"`
-	RootUser     string        `yaml:"access_key" env:"S3_ROOT_USER" env-required:"true"`
-	RootPassword string        `yaml:"secret_key" env:"S3_ROOT_PASSWORD" env-required:"true"`
+	RootUser     string        `yaml:"root_user" env:"S3_ROOT_USER" env-required:"true"`
+	RootPassword string        `yaml:"root_password" env:"S3_ROOT_PASSWORD" env-required:"true"`
 	Bucket       string        `yaml:"bucket" env:"S3_BUCKET" env-required:"true"`
 	PresignTTL   time.Duration `yaml:"presign_ttl" env:"S3_PRESIGN_TTL" env-default:"10m"`
 }
@@ -160,11 +160,11 @@ func (c *Config) validate() error {
 		return fmt.Errorf("s3.bucket is required")
 	}
 
-	if c.S3.PresignTTL <= 0 {
+	if c.S3.PresignTTL < 0 {
 		return fmt.Errorf("s3.presign_ttl must be > 0")
 	}
 
-	if c.Avatar.MaxSizeBytes <= 0 {
+	if c.Avatar.MaxSizeBytes < 0 {
 		return fmt.Errorf("avatar.max_size_bytes must be > 0")
 	}
 
