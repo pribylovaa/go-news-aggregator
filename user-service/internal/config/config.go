@@ -128,6 +128,14 @@ func Load(path string) (*Config, error) {
 }
 
 func (c *Config) validate() error {
+	if c.S3.PresignTTL == 0 {
+		c.S3.PresignTTL = 10 * time.Minute
+	}
+
+	if c.Avatar.MaxSizeBytes == 0 {
+		c.Avatar.MaxSizeBytes = 5 * 1024 * 1024 // 5 MiB
+	}
+
 	if c.Postgres.URL == "" {
 		return fmt.Errorf("postgres.url is required")
 	}
@@ -161,11 +169,11 @@ func (c *Config) validate() error {
 	}
 
 	if c.S3.PresignTTL < 0 {
-		return fmt.Errorf("s3.presign_ttl must be > 0")
+		return fmt.Errorf("s3.presign_ttl must be >= 0")
 	}
 
 	if c.Avatar.MaxSizeBytes < 0 {
-		return fmt.Errorf("avatar.max_size_bytes must be > 0")
+		return fmt.Errorf("avatar.max_size_bytes must be >= 0")
 	}
 
 	if len(c.Avatar.AllowedContentTypes) == 0 {
