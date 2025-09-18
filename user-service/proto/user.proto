@@ -43,10 +43,10 @@ message CreateProfileRequest {
 
 message UpdateProfileRequest {
   string user_id = 1;
-  optional string username = 2;
-  optional uint32 age = 3;
-  optional string country = 4;   
-  optional string gender = 5;
+  string username = 2;
+  uint32 age = 3;
+  string country = 4;   
+  string gender = 5;
 }
 
 message AvatarUploadURLRequest {

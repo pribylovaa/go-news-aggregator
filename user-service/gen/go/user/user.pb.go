@@ -252,10 +252,10 @@ func (x *CreateProfileRequest) GetGender() string {
 type UpdateProfileRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Username      *string                `protobuf:"bytes,2,opt,name=username,proto3,oneof" json:"username,omitempty"`
-	Age           *uint32                `protobuf:"varint,3,opt,name=age,proto3,oneof" json:"age,omitempty"`
-	Country       *string                `protobuf:"bytes,4,opt,name=country,proto3,oneof" json:"country,omitempty"`
-	Gender        *string                `protobuf:"bytes,5,opt,name=gender,proto3,oneof" json:"gender,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Age           uint32                 `protobuf:"varint,3,opt,name=age,proto3" json:"age,omitempty"`
+	Country       string                 `protobuf:"bytes,4,opt,name=country,proto3" json:"country,omitempty"`
+	Gender        string                 `protobuf:"bytes,5,opt,name=gender,proto3" json:"gender,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -298,29 +298,29 @@ func (x *UpdateProfileRequest) GetUserId() string {
 }
 
 func (x *UpdateProfileRequest) GetUsername() string {
-	if x != nil && x.Username != nil {
-		return *x.Username
+	if x != nil {
+		return x.Username
 	}
 	return ""
 }
 
 func (x *UpdateProfileRequest) GetAge() uint32 {
-	if x != nil && x.Age != nil {
-		return *x.Age
+	if x != nil {
+		return x.Age
 	}
 	return 0
 }
 
 func (x *UpdateProfileRequest) GetCountry() string {
-	if x != nil && x.Country != nil {
-		return *x.Country
+	if x != nil {
+		return x.Country
 	}
 	return ""
 }
 
 func (x *UpdateProfileRequest) GetGender() string {
-	if x != nil && x.Gender != nil {
-		return *x.Gender
+	if x != nil {
+		return x.Gender
 	}
 	return ""
 }
@@ -524,18 +524,13 @@ const file_user_proto_rawDesc = "" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x10\n" +
 	"\x03age\x18\x03 \x01(\rR\x03age\x12\x18\n" +
 	"\acountry\x18\x04 \x01(\tR\acountry\x12\x16\n" +
-	"\x06gender\x18\x05 \x01(\tR\x06gender\"\xcf\x01\n" +
+	"\x06gender\x18\x05 \x01(\tR\x06gender\"\x8f\x01\n" +
 	"\x14UpdateProfileRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1f\n" +
-	"\busername\x18\x02 \x01(\tH\x00R\busername\x88\x01\x01\x12\x15\n" +
-	"\x03age\x18\x03 \x01(\rH\x01R\x03age\x88\x01\x01\x12\x1d\n" +
-	"\acountry\x18\x04 \x01(\tH\x02R\acountry\x88\x01\x01\x12\x1b\n" +
-	"\x06gender\x18\x05 \x01(\tH\x03R\x06gender\x88\x01\x01B\v\n" +
-	"\t_usernameB\x06\n" +
-	"\x04_ageB\n" +
-	"\n" +
-	"\b_countryB\t\n" +
-	"\a_gender\"{\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x10\n" +
+	"\x03age\x18\x03 \x01(\rR\x03age\x12\x18\n" +
+	"\acountry\x18\x04 \x01(\tR\acountry\x12\x16\n" +
+	"\x06gender\x18\x05 \x01(\tR\x06gender\"{\n" +
 	"\x16AvatarUploadURLRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12%\n" +
@@ -602,7 +597,6 @@ func file_user_proto_init() {
 	if File_user_proto != nil {
 		return
 	}
-	file_user_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
