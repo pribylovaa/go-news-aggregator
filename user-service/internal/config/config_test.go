@@ -14,6 +14,7 @@ func writeFile(t *testing.T, dir, name, data string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
 	require.NoError(t, os.WriteFile(path, []byte(data), 0o600))
+
 	return path
 }
 
@@ -131,7 +132,7 @@ func TestLoad_WithCONFIG_PATH_OK(t *testing.T) {
 	cfg, err := Load("")
 	require.NoError(t, err)
 
-	// Значения по умолчанию из env-default в тэге.
+	// Значения по умолчанию из env-default.
 	require.Equal(t, "local", cfg.Env)
 	require.Equal(t, "0.0.0.0", cfg.GRPC.Host)
 	require.Equal(t, "50053", cfg.GRPC.Port)
