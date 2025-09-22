@@ -31,9 +31,9 @@ type UploadInfo struct {
 type Avatars interface {
 	// AvatarUploadURL генерирует presigned PUT. Внутри — валидация contentType и contentLength.
 	AvatarUploadURL(ctx context.Context, userID uuid.UUID, contentType string, contentLength int64) (*UploadInfo, error)
-	// AvatarUpload - проверяет факт загрузки по key (наличие, тип, размер).
+	// CheckAvatarUpload - проверяет факт загрузки по key (наличие, тип, размер).
 	// Возвращает публичный URL (если сконфигурирован PublicBaseURL) и финальный key.
-	AvatarUpload(ctx context.Context, userID uuid.UUID, key string) (publicURL string, err error)
+	CheckAvatarUpload(ctx context.Context, userID uuid.UUID, key string) (publicURL string, err error)
 }
 
 // AvatarsStorage — алиас-обёртка для внедрения зависимости.
