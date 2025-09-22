@@ -113,39 +113,32 @@ func (s *ProfilesStorage) UpdateProfile(ctx context.Context, userID uuid.UUID, u
 
 	sets := []string{"updated_at = now()"}
 	args := make([]any, 0, 5)
-	count := 1
 
 	if update.Username != nil {
-		count++
-		sets = append(sets, fmt.Sprintf("username = $%d", count))
+		sets = append(sets, fmt.Sprintf("username = $%d", len(args)+1))
 		args = append(args, *update.Username)
 	}
 
 	if update.Age != nil {
-		count++
-		sets = append(sets, fmt.Sprintf("age = $%d", count))
+		sets = append(sets, fmt.Sprintf("age = $%d", len(args)+1))
 		args = append(args, int32(*update.Age))
 	}
 
 	if update.Country != nil {
-		count++
-		sets = append(sets, fmt.Sprintf("country = $%d", count))
+		sets = append(sets, fmt.Sprintf("country = $%d", len(args)+1))
 		args = append(args, *update.Country)
 	}
 
 	if update.Gender != nil {
-		count++
-		sets = append(sets, fmt.Sprintf("gender = $%d", count))
+		sets = append(sets, fmt.Sprintf("gender = $%d", len(args)+1))
 		args = append(args, int16(*update.Gender))
 	}
 
-	count++
-	args = append(args, userID)
-
+	idx := len(args) + 1
 	q := fmt.Sprintf(`UPDATE profiles SET %s WHERE user_id = $%d RETURNING %s`,
-		strings.Join(sets, ", "), count, profileColumns)
+		strings.Join(sets, ", "), idx, profileColumns)
 
-	row := s.db.QueryRow(ctx, q, args...)
+	row := s.db.QueryRow(ctx, q, append(args, userID)...)
 
 	result, err := scanProfile(row)
 	if err != nil {
