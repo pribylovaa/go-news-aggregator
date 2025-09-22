@@ -9,7 +9,7 @@ import (
 )
 
 // Gender — внутренний enum;
-type Gender int8
+type Gender int16
 
 const (
 	GenderUnspecified Gender = iota
