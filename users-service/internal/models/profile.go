@@ -42,5 +42,5 @@ type Profile struct {
 	AvatarKey string
 	AvatarURL string
 	CreatedAt time.Time
-	UpdateAt  time.Time
+	UpdatedAt time.Time
 }
