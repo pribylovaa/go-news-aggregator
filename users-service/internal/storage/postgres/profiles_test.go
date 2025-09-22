@@ -66,7 +66,7 @@ func startPostgres(t *testing.T) (*ProfilesStorage, func()) {
 		ExposedPorts: []string{"5432/tcp"},
 		WaitingFor:   wait.ForListeningPort("5432/tcp").WithStartupTimeout(60 * time.Second),
 	}
-	t.Logf("starting postgres container with image=%q", req.Image)
+
 	c, err := tc.GenericContainer(ctx, tc.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
