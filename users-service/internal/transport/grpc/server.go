@@ -13,6 +13,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"time"
 
@@ -81,7 +82,7 @@ func (s *UsersServer) CreateProfile(ctx context.Context, req *usersv1.CreateProf
 		Username: req.GetUsername(),
 		Age:      req.GetAge(),
 		Country:  req.GetCountry(),
-		Gender:   models.Gender(req.GetGender()),
+		Gender:   fromProtoGender(req.GetGender()),
 	})
 	if err != nil {
 		switch {
@@ -176,13 +177,13 @@ func (s *UsersServer) UpdateProfile(ctx context.Context, req *usersv1.UpdateProf
 	if useMask {
 		for _, p := range mask {
 			if p == "gender" {
-				g := models.Gender(req.GetGender())
+				g := fromProtoGender(req.GetGender())
 				in.Gender = &g
 				break
 			}
 		}
 	} else if req.GetGender() != usersv1.Gender_GENDER_UNSPECIFIED {
-		g := models.Gender(req.GetGender())
+		g := fromProtoGender(req.GetGender())
 		in.Gender = &g
 	}
 
@@ -214,10 +215,15 @@ func (s *UsersServer) AvatarUploadURL(ctx context.Context, req *usersv1.AvatarUp
 		return nil, status.Errorf(codes.InvalidArgument, "%s: invalid user_id: %v", op, err)
 	}
 
+	cl := req.GetContentLength()
+	if cl > math.MaxInt64 {
+		return nil, status.Errorf(codes.InvalidArgument, "%s: content_length too large", op)
+	}
+
 	response, err := s.service.AvatarUploadURL(ctx, service.AvatarUploadURLInput{
 		UserID:        userID,
 		ContentType:   req.GetContentType(),
-		ContentLength: int64(req.GetContentLength()),
+		ContentLength: int64(cl),
 	})
 	if err != nil {
 		switch {
@@ -228,10 +234,22 @@ func (s *UsersServer) AvatarUploadURL(ctx context.Context, req *usersv1.AvatarUp
 		}
 	}
 
+	secs := response.Expires / time.Second
+	var expires uint32
+	switch {
+	case secs < 0:
+		expires = 0
+	case secs > math.MaxUint32:
+		expires = math.MaxUint32
+	default:
+		//nolint:gosec // G115: безопасно — secs гарантированно ∈ [0..MaxUint32]
+		expires = uint32(secs)
+	}
+
 	return &usersv1.AvatarUploadURLResponse{
 		UploadUrl:       response.UploadURL,
 		AvatarKey:       response.AvatarKey,
-		ExpiresSeconds:  uint32(response.Expires / time.Second),
+		ExpiresSeconds:  expires,
 		RequiredHeaders: response.RequiredHeader,
 	}, nil
 }
@@ -284,8 +302,8 @@ func toProtoProfile(p models.Profile) *usersv1.Profile {
 }
 
 // toProtoGender конвертирует доменную модель Gender в protobuf-представление.
-func toProtoGender(g models.Gender) usersv1.Gender {
-	switch g {
+func toProtoGender(gender models.Gender) usersv1.Gender {
+	switch gender {
 	case models.GenderMale:
 		return usersv1.Gender_MALE
 	case models.GenderFemale:
@@ -294,5 +312,19 @@ func toProtoGender(g models.Gender) usersv1.Gender {
 		return usersv1.Gender_OTHER
 	default:
 		return usersv1.Gender_GENDER_UNSPECIFIED
+	}
+}
+
+// fromProtoGender обеспечивает безопасное сопоставление enum без int32 -> int16 кастов.
+func fromProtoGender(gender usersv1.Gender) models.Gender {
+	switch gender {
+	case usersv1.Gender_MALE:
+		return models.GenderMale
+	case usersv1.Gender_FEMALE:
+		return models.GenderFemale
+	case usersv1.Gender_OTHER:
+		return models.GenderOther
+	default:
+		return models.GenderUnspecified
 	}
 }

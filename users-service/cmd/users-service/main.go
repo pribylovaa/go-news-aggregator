@@ -121,7 +121,6 @@ func main() {
 	hs.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
 
 	done := make(chan struct{})
 	go func() {
@@ -137,8 +136,10 @@ func main() {
 		grpcServer.Stop()
 	}
 
+	shutdownCancel()
 	rootCancel()
 	profilesStore.Close()
+
 	log.Info("service_stopped")
 	os.Exit(0)
 }

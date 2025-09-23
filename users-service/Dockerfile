@@ -31,7 +31,7 @@ COPY --from=builder /out/users-service /usr/local/bin/users-service
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Конфиг по умолчанию внутри контейнера
-ENV CONFIG_PATH=/etc/news-service/config.yaml
+ENV CONFIG_PATH=/etc/users-service/config.yaml
 
 EXPOSE 50053
 

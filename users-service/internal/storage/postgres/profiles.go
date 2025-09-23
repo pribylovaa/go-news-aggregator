@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/google/uuid"
@@ -61,10 +62,15 @@ func (s *ProfilesStorage) CreateProfile(ctx context.Context, profile *models.Pro
 	RETURNING 
 	` + profileColumns
 
+	if profile.Age > math.MaxInt32 {
+		return nil, fmt.Errorf("%s: %w", op, storage.ErrInvalidArgument)
+	}
+	age32 := int32(profile.Age)
+
 	row := s.db.QueryRow(ctx, q,
 		profile.UserID,
 		profile.Username,
-		int32(profile.Age),
+		age32,
 		profile.Country,
 		int16(profile.Gender),
 		profile.AvatarKey,
@@ -120,6 +126,10 @@ func (s *ProfilesStorage) UpdateProfile(ctx context.Context, userID uuid.UUID, u
 	}
 
 	if update.Age != nil {
+		if *update.Age > math.MaxInt32 {
+			return nil, fmt.Errorf("%s: %w", op, storage.ErrInvalidArgument)
+		}
+
 		sets = append(sets, fmt.Sprintf("age = $%d", len(args)+1))
 		args = append(args, int32(*update.Age))
 	}
