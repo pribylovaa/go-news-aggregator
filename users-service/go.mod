@@ -3,10 +3,12 @@ module github.com/pribylovaa/go-news-aggregator/users-service
 go 1.24.3
 
 require (
+	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/minio/minio-go/v7 v7.0.95
+	github.com/pribylovaa/go-news-aggregator v0.0.0-20250923192411-59a35c7e2070
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.39.0
 	google.golang.org/grpc v1.75.1
