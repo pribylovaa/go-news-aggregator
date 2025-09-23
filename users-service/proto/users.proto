@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package users.v1;
+
+option go_package = "github.com/pribylovaa/go-news-aggregator/proto/users/v1;usersv1";
+
+import "google/protobuf/field_mask.proto";
+
+service UsersService {
+    // Получить профиль по user_id.
+    rpc ProfileByID(ProfileByIDRequest) returns (Profile);
+    // Создать профиль (обычно сразу после регистрации).
+    rpc CreateProfile(CreateProfileRequest) returns (Profile);
+    // Обновить профиль.
+    rpc UpdateProfile(UpdateProfileRequest) returns (Profile);
+    // Выдать presigned URL для загрузки аватара в MinIO/S3 (PUT).
+    rpc AvatarUploadURL(AvatarUploadURLRequest) returns (AvatarUploadURLResponse);
+    // Подтвердить загрузку аватара: проверить объект и зафиксировать avatar_url/key.
+    rpc ConfirmAvatarUpload(ConfirmAvatarUploadRequest) returns (Profile);
+}
+
+enum Gender {
+    GENDER_UNSPECIFIED = 0;
+    MALE = 1;
+    FEMALE = 2;
+    OTHER = 3;
+}
+
+message Profile {
+    string user_id = 1;                         
+    string username = 2;                        
+    uint32 age = 3;                             
+    string avatar_url = 4;                     
+    string avatar_key = 5;                      
+    int64 created_at = 6;
+    int64 updated_at = 7;
+    string country = 8;                         
+    Gender gender = 9;                     
+}
+
+message ProfileByIDRequest {
+    string user_id = 1;
+}
+
+message CreateProfileRequest {
+    string user_id = 1;
+    string username = 2;
+    uint32 age = 3;
+    string country = 4;  
+    Gender gender = 5;
+}
+
+message UpdateProfileRequest {
+  string user_id = 1;
+  string username = 2;
+  uint32 age = 3;
+  string country = 4;   
+  Gender gender = 5;
+  // Маска с перечислением обновляемых полей: "username,age,country,gender".
+  google.protobuf.FieldMask update_mask = 6;
+}
+
+message AvatarUploadURLRequest {
+    string user_id = 1;
+    string content_type = 2;
+    uint64 content_length = 3;
+}
+
+message AvatarUploadURLResponse {
+    string upload_url = 1;          
+    string avatar_key = 2;          
+    uint32 expires_seconds = 3;
+    map<string,string> required_headers = 4;
+}
+
+message ConfirmAvatarUploadRequest {
+    string user_id = 1;
+    string avatar_key = 2;
+}
