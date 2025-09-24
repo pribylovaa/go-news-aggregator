@@ -32,7 +32,7 @@ spec:
       - name: app
         image: ghcr.io/<org>/go-news-aggregator/users-service:latest
         imagePullPolicy: IfNotPresent
-        args: ["--config=/etc/users/config.yaml"]  
+        args: ["--config=/etc/users/config.yaml"]
         env:
           - name: CONFIG_PATH
             value: "/etc/users/config.yaml"
@@ -43,7 +43,7 @@ spec:
           - name: S3_ROOT_PASSWORD
             valueFrom: { secretKeyRef: { name: users-secrets, key: S3_ROOT_PASSWORD } }
           - name: ENV
-            value: "dev"
+            value: "local"
         ports:
           - name: grpc
             containerPort: 50053

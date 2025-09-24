@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: users-service
+  namespace: news
+  labels:
+    app.kubernetes.io/name: users-service
+spec:
+  selector:
+    app.kubernetes.io/name: users-service
+  ports:
+    - name: grpc
+      port: 50053
+      targetPort: grpc
+    - name: http
+      port: 50083
+      targetPort: http
+  type: ClusterIP
