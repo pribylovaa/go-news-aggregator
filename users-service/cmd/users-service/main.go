@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/pribylovaa/go-news-aggregator/pkg/interceptors"
@@ -105,11 +106,17 @@ func main() {
 		}
 	}()
 
+	grpc_prometheus.EnableHandlingTimeHistogram()
+
 	grpcOpts := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
 			interceptors.Recover(log),
 			interceptors.UnaryLoggingInterceptor(log),
 			interceptors.WithTimeout(cfg.Timeouts.Service),
+			grpc_prometheus.UnaryServerInterceptor,
+		),
+		grpc.ChainStreamInterceptor(
+			grpc_prometheus.StreamServerInterceptor,
 		),
 	}
 	grpcServer := grpc.NewServer(grpcOpts...)
@@ -135,6 +142,8 @@ func main() {
 		os.Exit(1)
 	}
 	log.Info("grpc_listen_start", slog.String("addr", addr))
+
+	grpc_prometheus.Register(grpcServer)
 
 	hs.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 	atomic.StoreInt32(&ready, 1)
