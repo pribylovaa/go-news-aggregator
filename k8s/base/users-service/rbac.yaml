@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: users-service
+  namespace: news
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: users-service
+  namespace: news
+rules: [] 
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: users-service
+  namespace: news
+subjects:
+- kind: ServiceAccount
+  name: users-service
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: users-service
