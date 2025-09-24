@@ -26,7 +26,7 @@ COPY --from=builder /out/users-service /usr/local/bin/users-service
 
 ENV CONFIG_PATH=/etc/users-service/config.yaml
 
-EXPOSE 50051
+EXPOSE 50053
 USER nonroot:nonroot
 
 ENTRYPOINT ["/usr/local/bin/users-service"]

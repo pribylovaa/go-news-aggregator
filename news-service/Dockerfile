@@ -26,7 +26,7 @@ COPY --from=builder /out/news-service /usr/local/bin/news-service
 
 ENV CONFIG_PATH=/etc/news-service/config.yaml
 
-EXPOSE 50051
+EXPOSE 50052
 USER nonroot:nonroot
 
 ENTRYPOINT ["/usr/local/bin/news-service"]
