@@ -3,7 +3,7 @@ name: News-service CD
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ]
+    tags: [ 'news-service-v*' ]   
     paths:
       - 'news-service/**'
       - '.github/workflows/news-cd.yml'
@@ -28,7 +28,7 @@ permissions:
   packages: write
 
 env:
-  BASE_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/go-news-aggregator/news-service
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/go-news-aggregator/news-service
 
 jobs:
   docker-publish:
@@ -37,6 +37,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup QEMU (multi-arch)
         uses: docker/setup-qemu-action@v3
@@ -56,10 +58,11 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ env.BASE_IMAGE_NAME }}${{ github.event_name == 'workflow_dispatch' && inputs.image_suffix || '' }}
+            ${{ env.IMAGE_NAME }}${{ github.event_name == 'workflow_dispatch' && inputs.image_suffix || '' }}
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=ref,event=tag
+            type=match,pattern=news-service-(v*),group=1,enable=${{ startsWith(github.ref, 'refs/tags/') }}
             type=sha
           labels: |
             org.opencontainers.image.source=${{ github.repository }}
@@ -68,7 +71,7 @@ jobs:
       - name: Build & Push
         uses: docker/build-push-action@v6
         with:
-          context: news-service
+          context: .                      
           file: news-service/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'workflow_dispatch' || inputs.push_image == 'true' }}
@@ -76,5 +79,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=news-service
           cache-to: type=gha,mode=max,scope=news-service
-
-
