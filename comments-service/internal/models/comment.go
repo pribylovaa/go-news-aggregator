@@ -37,3 +37,9 @@ type ListParams struct {
 	PageSize  int32
 	PageToken string
 }
+
+// Page — результат постраничной выдачи.
+type Page struct {
+	Items         []Comment
+	NextPageToken string
+}
