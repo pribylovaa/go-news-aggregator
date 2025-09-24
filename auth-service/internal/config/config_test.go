@@ -38,6 +38,9 @@ env: "prod"
 grpc:
   host: "127.0.0.1"
   port: "6000"
+http:
+  host: "0.0.0.0"
+  port: "8080"
 auth:
   jwt_secret: "super-secret"
   access_token_ttl: "10m"

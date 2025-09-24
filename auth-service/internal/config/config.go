@@ -19,6 +19,7 @@ import (
 //  4. переменные окружения (cleanenv).
 type Config struct {
 	Env      string        `yaml:"env" env:"ENV" env-default:"local"`
+	HTTP     HTTPConfig    `yaml:"http"`
 	GRPC     GRPCConfig    `yaml:"grpc"`
 	Auth     AuthConfig    `yaml:"auth"`
 	DB       DBConfig      `yaml:"db"`
@@ -30,10 +31,21 @@ type TimeoutConfig struct {
 	Service time.Duration `yaml:"service" env:"SERVICE" env-default:"5s"`
 }
 
+// HTTPConfig — сетевые настройки HTTP-сервера.
+type HTTPConfig struct {
+	Host string `yaml:"host" env:"HTTP_HOST" env-default:"0.0.0.0"`
+	Port string `yaml:"port" env:"HTTP_PORT" env-default:"50081"`
+}
+
 // GRPCConfig описывает сетевые настройки gRPC-сервера.
 type GRPCConfig struct {
 	Host string `yaml:"host" env:"HOST" env-default:"0.0.0.0"`
 	Port string `yaml:"port" env:"PORT" env-default:"50051"`
+}
+
+// Addr возвращает адрес в формате host:port.
+func (g HTTPConfig) Addr() string {
+	return net.JoinHostPort(g.Host, g.Port)
 }
 
 // Addr возвращает адрес в формате host:port.

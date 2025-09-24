@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 	"github.com/pribylovaa/go-news-aggregator/news-service/internal/storage/postgres"
 	news "github.com/pribylovaa/go-news-aggregator/news-service/internal/transport/grpc"
 	"github.com/pribylovaa/go-news-aggregator/pkg/interceptors"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	health "google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -57,6 +60,39 @@ func main() {
 
 	svc := service.New(store, *cfg)
 	log.Info("service_initialized")
+
+	var ready int32 // 0 — not ready; 1 — ready
+	httpAddr := cfg.HTTP.Addr()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/livez", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		if atomic.LoadInt32(&ready) == 1 {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("ok"))
+			return
+		}
+		http.Error(w, "not ready", http.StatusServiceUnavailable)
+	})
+
+	mux.Handle("/metrics", promhttp.Handler())
+
+	httpSrv := &http.Server{
+		Addr:              httpAddr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	go func() {
+		log.Info("http_listen_start", "addr", httpAddr)
+		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("http_serve_failed", slog.String("err", err.Error()))
+		}
+	}()
 
 	grpcOpts := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
@@ -98,6 +134,7 @@ func main() {
 	log.Info("grpc_listen_start", slog.String("addr", addr))
 
 	hs.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+	atomic.StoreInt32(&ready, 1)
 
 	serveErrCh := make(chan error, 1)
 	go func() {
@@ -117,8 +154,9 @@ func main() {
 	}
 
 	hs.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	atomic.StoreInt32(&ready, 0)
 
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	done := make(chan struct{})
 	go func() {
 		grpcServer.GracefulStop()
@@ -134,6 +172,8 @@ func main() {
 	}
 
 	shutdownCancel()
+	_ = httpSrv.Shutdown(context.Background())
+
 	rootCancel()
 	store.Close()
 

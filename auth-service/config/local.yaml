@@ -4,6 +4,10 @@ grpc:
   host: "0.0.0.0"
   port: "50051"
 
+http:
+  host: "0.0.0.0"
+  port: "50081"
+
 auth:
   jwt_secret: "local-secret-key"
   access_token_ttl: 15m

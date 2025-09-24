@@ -29,6 +29,7 @@ COPY --from=builder /out/auth-service /usr/local/bin/auth-service
 ENV CONFIG_PATH=/etc/auth-service/config.yaml
 
 EXPOSE 50051
+EXPOSE 50081
 USER nonroot:nonroot
 
 ENTRYPOINT ["/usr/local/bin/auth-service"]

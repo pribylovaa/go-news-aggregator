@@ -32,6 +32,9 @@ env: "prod"
 grpc:
   host: "127.0.0.1"
   port: "6000"
+http:
+  host: "0.0.0.0"
+  port: "8080"
 db:
   url: "postgres://user:pass@localhost:5432/db?sslmode=disable"
 fetcher:
