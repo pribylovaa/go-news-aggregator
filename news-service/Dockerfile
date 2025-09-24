@@ -19,6 +19,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM gcr.io/distroless/static-debian12:nonroot
 
+WORKDIR /app
+
 LABEL org.opencontainers.image.title="news-service" \
       org.opencontainers.image.source="https://github.com/pribylovaa/go-news-aggregator"
 
