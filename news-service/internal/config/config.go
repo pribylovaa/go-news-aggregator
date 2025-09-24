@@ -85,19 +85,28 @@ func MustLoad(path string) *Config {
 
 // Load загружает конфигурацию по приоритету:
 // 1) явный путь; 2) CONFIG_PATH; 3) ./local.yaml; 4) ENV.
+// ВАЖНО: после чтения файла накладываем ENV-переменные поверх значений из YAML.
 func Load(path string) (*Config, error) {
 	var cfg Config
 
+	// чтение файла + overlay ENV.
 	tryRead := func(p string) (*Config, error) {
 		if p == "" {
 			return nil, fmt.Errorf("empty config path")
 		}
+
 		if _, err := os.Stat(p); err != nil {
-			return nil, fmt.Errorf("config file does not exist: %s", p)
+			return nil, fmt.Errorf("config file %q stat failed: %w", p, err)
 		}
+
 		if err := cleanenv.ReadConfig(p, &cfg); err != nil {
 			return nil, fmt.Errorf("failed to read config: %w", err)
 		}
+
+		if err := cleanenv.ReadEnv(&cfg); err != nil {
+			return nil, fmt.Errorf("failed to overlay env: %w", err)
+		}
+
 		return &cfg, nil
 	}
 
@@ -107,21 +116,26 @@ func Load(path string) (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		if err := c.validate(); err != nil {
 			return nil, err
 		}
+
 		return c, nil
 	}
 
 	// 2) CONFIG_PATH.
 	if envPath := os.Getenv("CONFIG_PATH"); envPath != "" {
 		c, err := tryRead(envPath)
+
 		if err != nil {
 			return nil, err
 		}
+
 		if err := c.validate(); err != nil {
 			return nil, err
 		}
+
 		return c, nil
 	}
 
@@ -130,9 +144,15 @@ func Load(path string) (*Config, error) {
 		if err := cleanenv.ReadConfig("local.yaml", &cfg); err != nil {
 			return nil, fmt.Errorf("failed to read local.yaml: %w", err)
 		}
+
+		if err := cleanenv.ReadEnv(&cfg); err != nil {
+			return nil, fmt.Errorf("failed to overlay env: %w", err)
+		}
+
 		if err := cfg.validate(); err != nil {
 			return nil, err
 		}
+
 		return &cfg, nil
 	}
 
@@ -140,9 +160,11 @@ func Load(path string) (*Config, error) {
 	if err := cleanenv.ReadEnv(&cfg); err != nil {
 		return nil, fmt.Errorf("config not found: provide --config, CONFIG_PATH, local.yaml or env vars: %w", err)
 	}
+
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
+
 	return &cfg, nil
 }
 

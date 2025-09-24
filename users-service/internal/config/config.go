@@ -81,9 +81,11 @@ func MustLoad(path string) *Config {
 
 // Load загружает конфигурацию по приоритету:
 // 1) явный путь; 2) CONFIG_PATH; 3) ./local.yaml; 4) ENV.
+// ВАЖНО: после чтения файла накладываем ENV-переменные поверх значений из YAML.
 func Load(path string) (*Config, error) {
 	var cfg Config
 
+	// чтение файла + overlay ENV.
 	tryRead := func(p string) (*Config, error) {
 		if p == "" {
 			return nil, fmt.Errorf("empty config path")
@@ -96,13 +98,17 @@ func Load(path string) (*Config, error) {
 		if err := cleanenv.ReadConfig(p, &cfg); err != nil {
 			return nil, fmt.Errorf("failed to read config: %w", err)
 		}
+
+		if err := cleanenv.ReadEnv(&cfg); err != nil {
+			return nil, fmt.Errorf("failed to overlay env: %w", err)
+		}
+
 		return &cfg, nil
 	}
 
 	// 1) Явный путь.
 	if path != "" {
 		c, err := tryRead(path)
-
 		if err != nil {
 			return nil, err
 		}
@@ -133,6 +139,10 @@ func Load(path string) (*Config, error) {
 	if _, err := os.Stat("local.yaml"); err == nil {
 		if err := cleanenv.ReadConfig("local.yaml", &cfg); err != nil {
 			return nil, fmt.Errorf("failed to read local.yaml: %w", err)
+		}
+
+		if err := cleanenv.ReadEnv(&cfg); err != nil {
+			return nil, fmt.Errorf("failed to overlay env: %w", err)
 		}
 
 		if err := cfg.validate(); err != nil {
@@ -182,9 +192,11 @@ func (c *Config) validate() error {
 	if c.HTTP.Host == "" {
 		return fmt.Errorf("http.host is required")
 	}
+
 	if c.HTTP.Port == "" {
 		return fmt.Errorf("http.port is required")
 	}
+
 	if p, err := strconv.Atoi(c.HTTP.Port); err != nil || p <= 0 || p > 65535 {
 		return fmt.Errorf("http.port must be a valid TCP port (1..65535)")
 	}

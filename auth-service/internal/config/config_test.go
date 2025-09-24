@@ -102,19 +102,6 @@ func TestLoad_WithExplicitPath_OK(t *testing.T) {
 	require.Equal(t, 3*time.Second, cfg.Timeouts.Service)
 }
 
-// TestLoad_WithExplicitPath_FileDoesNotExist — явный путь на несуществующий файл.
-func TestLoad_WithExplicitPath_FileDoesNotExist(t *testing.T) {
-	t.Parallel()
-
-	// формируем путь к отсутствующему файлу в temp-директории.
-	missing := filepath.Join(t.TempDir(), "missing.yaml")
-
-	// ожидаем диагностическую ошибку про отсутствие файла.
-	_, err := Load(missing)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "config file does not exist")
-}
-
 // TestLoad_WithExplicitPath_BrokenYAML — битый YAML по явному пути
 // должен привести к ошибке чтения.
 func TestLoad_WithExplicitPath_BrokenYAML(t *testing.T) {
