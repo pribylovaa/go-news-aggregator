@@ -59,7 +59,7 @@ run-dev:
 # Docker 
 .PHONY: docker-build
 docker-build:
-	docker build -t $(SERVICE):local .
+	docker build -t $(SERVICE):local -f Dockerfile ..
 
 # Compose: local 
 .PHONY: up-local

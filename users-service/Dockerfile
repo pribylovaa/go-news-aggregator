@@ -1,38 +1,32 @@
-# Builder
-FROM golang:1.24-alpine AS builder
+# Builder 
+FROM golang:1.24-bookworm AS builder 
 
-WORKDIR /src
-RUN apk add --no-cache ca-certificates tzdata git
+WORKDIR /src 
 
-# Кэш зависимостей
-COPY go.mod go.sum ./
+COPY users-service/go.mod users-service/go.sum ./users-service/
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    go mod download
+    cd ./users-service && go mod download
 
-# Исходники
-COPY . .
+COPY . . 
 
-# Сборка статического бинарника
-ENV CGO_ENABLED=0
-# Путь до main-пакета
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    go build -trimpath -tags timetzdata -ldflags "-s -w" -o /out/users-service ./cmd/users-service
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -trimpath -ldflags="-s -w" -o /out/users-service ./users-service/cmd/users-service
 
-# Runtime
-FROM gcr.io/distroless/static:nonroot AS runtime
+# Runtime (non-root)
 
-WORKDIR /app
+FROM gcr.io/distroless/static-debian12:nonroot
 
-# Бинарник
+LABEL org.opencontainers.image.title="users-service" \
+      org.opencontainers.image.source="https://github.com/pribylovaa/go-news-aggregator"
+
 COPY --from=builder /out/users-service /usr/local/bin/users-service
-# CA-сертификаты (на случай исходящего TLS)
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# Конфиг по умолчанию внутри контейнера
 ENV CONFIG_PATH=/etc/users-service/config.yaml
 
-EXPOSE 50053
+EXPOSE 50051
+USER nonroot:nonroot
 
 ENTRYPOINT ["/usr/local/bin/users-service"]
