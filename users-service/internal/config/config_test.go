@@ -33,6 +33,9 @@ env: "prod"
 grpc:
   host: "127.0.0.1"
   port: "6001"
+http:
+  host: "0.0.0.0"
+  port: "8080"
 postgres:
   url: "postgres://user:pass@localhost:5432/userdb?sslmode=disable"
 s3:
@@ -76,6 +79,12 @@ avatar:
 func TestGRPCConfig_Addr(t *testing.T) {
 	t.Parallel()
 	cfg := GRPCConfig{Host: "127.0.0.1", Port: "50051"}
+	require.Equal(t, "127.0.0.1:50051", cfg.Addr())
+}
+
+func TestHTTPConfig_Addr(t *testing.T) {
+	t.Parallel()
+	cfg := HTTPConfig{Host: "127.0.0.1", Port: "50051"}
 	require.Equal(t, "127.0.0.1:50051", cfg.Addr())
 }
 
@@ -136,6 +145,8 @@ func TestLoad_WithCONFIG_PATH_OK(t *testing.T) {
 	require.Equal(t, "local", cfg.Env)
 	require.Equal(t, "0.0.0.0", cfg.GRPC.Host)
 	require.Equal(t, "50053", cfg.GRPC.Port)
+	require.Equal(t, "0.0.0.0", cfg.HTTP.Host)
+	require.Equal(t, "50083", cfg.HTTP.Port)
 
 	require.Equal(t, "postgres://localhost/user-min", cfg.Postgres.URL)
 
@@ -178,6 +189,8 @@ func TestLoad_EnvOnly_OK(t *testing.T) {
 	t.Setenv("ENV", "dev")
 	t.Setenv("GRPC_HOST", "127.0.0.1")
 	t.Setenv("GRPC_PORT", "7001")
+	t.Setenv("HTTP_HOST", "0.0.0.0")
+	t.Setenv("HTTP_PORT", "8080")
 	t.Setenv("S3_PRESIGN_TTL", "13m")
 	t.Setenv("AVATAR_MAX_SIZE_BYTES", "2097152")
 	t.Setenv("AVATAR_ALLOWED_CONTENT_TYPES", "image/jpeg,image/svg+xml")

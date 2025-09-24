@@ -15,6 +15,7 @@ import (
 // Config — корневая конфигурация сервиса.
 type Config struct {
 	Env      string         `yaml:"env" env:"ENV" env-default:"local"`
+	HTTP     HTTPConfig     `yaml:"http"`
 	GRPC     GRPCConfig     `yaml:"grpc"`
 	Postgres PostgresConfig `yaml:"postgres"`
 	S3       S3Config       `yaml:"s3"`
@@ -28,8 +29,19 @@ type GRPCConfig struct {
 	Port string `yaml:"port" env:"GRPC_PORT" env-default:"50053"`
 }
 
+// HTTPConfig — сетевые настройки HTTP-сервера.
+type HTTPConfig struct {
+	Host string `yaml:"host" env:"HTTP_HOST" env-default:"0.0.0.0"`
+	Port string `yaml:"port" env:"HTTP_PORT" env-default:"50083"`
+}
+
 // Addr возвращает адрес в формате host:port.
 func (g GRPCConfig) Addr() string {
+	return net.JoinHostPort(g.Host, g.Port)
+}
+
+// Addr возвращает адрес в формате host:port.
+func (g HTTPConfig) Addr() string {
 	return net.JoinHostPort(g.Host, g.Port)
 }
 
@@ -165,6 +177,16 @@ func (c *Config) validate() error {
 
 	if p, err := strconv.Atoi(c.GRPC.Port); err != nil || p <= 0 || p > 65535 {
 		return fmt.Errorf("grpc.port must be a valid TCP port (1..65535)")
+	}
+
+	if c.HTTP.Host == "" {
+		return fmt.Errorf("http.host is required")
+	}
+	if c.HTTP.Port == "" {
+		return fmt.Errorf("http.port is required")
+	}
+	if p, err := strconv.Atoi(c.HTTP.Port); err != nil || p <= 0 || p > 65535 {
+		return fmt.Errorf("http.port must be a valid TCP port (1..65535)")
 	}
 
 	if c.S3.Endpoint == "" {
