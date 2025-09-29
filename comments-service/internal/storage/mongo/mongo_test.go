@@ -26,9 +26,14 @@ const testTimeout = 10 * time.Second
 // Адрес контейнера прокидывается в ENV DATABASE_URL, а каждая спецификация
 // создаёт свою БД с уникальным именем (см. newTestConfig).
 func TestMain(m *testing.M) {
-	if os.Getenv("GO_TEST_INTEGRATION") == "" {
-		os.Exit(m.Run())
-	}
+	os.Exit(testMain(m))
+}
+
+func testMain(m *testing.M) int {
+	// (если используешь флаг окружения для интеграционных тестов)
+	// if os.Getenv("GO_TEST_INTEGRATION") == "" {
+	//     return m.Run()
+	// }
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -38,41 +43,31 @@ func TestMain(m *testing.M) {
 		ExposedPorts: []string{"27017/tcp"},
 		WaitingFor:   wait.ForLog("Waiting for connections").WithStartupTimeout(90 * time.Second),
 	}
-
 	mongoC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
 	})
-
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to start mongo testcontainer: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
+	// Обязательно чистим контейнер в конце даже при ошибках ниже.
+	defer func() { _ = mongoC.Terminate(context.Background()) }()
 
-	// Получаем host:port и формируем URI без имени БД.
 	host, err := mongoC.Host(ctx)
 	if err != nil {
-		_ = mongoC.Terminate(ctx)
 		fmt.Fprintf(os.Stderr, "failed to get container host: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
-
 	port, err := mongoC.MappedPort(ctx, "27017/tcp")
 	if err != nil {
-		_ = mongoC.Terminate(ctx)
 		fmt.Fprintf(os.Stderr, "failed to get mapped port: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
-
 	uri := fmt.Sprintf("mongodb://%s:%s", host, port.Port())
 	_ = os.Setenv("DATABASE_URL", uri)
 
-	// Запускаем тесты пакета.
-	code := m.Run()
-
-	// Гасим контейнер *после* выполнения пакета тестов.
-	_ = mongoC.Terminate(context.Background())
-	os.Exit(code)
+	return m.Run()
 }
 
 // newTestConfig создаёт конфиг с отдельной тестовой БД.
@@ -86,9 +81,9 @@ func newTestConfig(t *testing.T) *config.Config {
 
 	dbName := "comments_test_" + uuid.New().String()
 	if baseURL[len(baseURL)-1] == '/' {
-		baseURL = baseURL + dbName
+		baseURL += dbName
 	} else {
-		baseURL = baseURL + "/" + dbName
+		baseURL += "/" + dbName
 	}
 
 	return &config.Config{
@@ -532,7 +527,6 @@ func TestEnsureIndexes_Created(t *testing.T) {
 	}
 	defer cur.Close(ctx)
 
-	type keyDoc = map[string]any
 	haveNames := map[string]bool{}
 	var haveTTL, haveRootList, haveRepliesList bool
 
