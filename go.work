@@ -2,6 +2,7 @@ go 1.24.3
 
 use (
 	.
+	./api-gateway
 	./auth-service
 	./news-service
 	./users-service
