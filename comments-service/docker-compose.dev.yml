@@ -11,7 +11,7 @@ services:
       - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: administrator
-      MONGO_INITDB_PASSWORD: administrator
+      MONGO_INITDB_ROOT_PASSWORD: administrator
       MONGO_INITDB_DATABASE: comments
     volumes:
       - data:/var/lib/mongo/data
