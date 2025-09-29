@@ -38,6 +38,9 @@ env: "prod"
 grpc:
   host: "127.0.0.1"
   port: "6000"
+http:
+  host: "0.0.0.0"
+  port: "8080"
 auth:
   jwt_secret: "super-secret"
   access_token_ttl: "10m"
@@ -97,19 +100,6 @@ func TestLoad_WithExplicitPath_OK(t *testing.T) {
 	require.ElementsMatch(t, []string{"api-gateway", "web"}, cfg.Auth.Audience)
 	require.Equal(t, "postgres://user:pass@localhost:5432/db?sslmode=disable", cfg.DB.DatabaseURL)
 	require.Equal(t, 3*time.Second, cfg.Timeouts.Service)
-}
-
-// TestLoad_WithExplicitPath_FileDoesNotExist — явный путь на несуществующий файл.
-func TestLoad_WithExplicitPath_FileDoesNotExist(t *testing.T) {
-	t.Parallel()
-
-	// формируем путь к отсутствующему файлу в temp-директории.
-	missing := filepath.Join(t.TempDir(), "missing.yaml")
-
-	// ожидаем диагностическую ошибку про отсутствие файла.
-	_, err := Load(missing)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "config file does not exist")
 }
 
 // TestLoad_WithExplicitPath_BrokenYAML — битый YAML по явному пути

@@ -4,6 +4,10 @@ grpc:
   host: "0.0.0.0"
   port: "50053" 
 
+http:
+  host: "0.0.0.0"
+  port: "50083"
+
 postgres:
   url: "postgres://administrator:administrator@users-db:5432/profiles?sslmode=disable"
 

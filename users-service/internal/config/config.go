@@ -15,6 +15,7 @@ import (
 // Config — корневая конфигурация сервиса.
 type Config struct {
 	Env      string         `yaml:"env" env:"ENV" env-default:"local"`
+	HTTP     HTTPConfig     `yaml:"http"`
 	GRPC     GRPCConfig     `yaml:"grpc"`
 	Postgres PostgresConfig `yaml:"postgres"`
 	S3       S3Config       `yaml:"s3"`
@@ -28,8 +29,19 @@ type GRPCConfig struct {
 	Port string `yaml:"port" env:"GRPC_PORT" env-default:"50053"`
 }
 
+// HTTPConfig — сетевые настройки HTTP-сервера.
+type HTTPConfig struct {
+	Host string `yaml:"host" env:"HTTP_HOST" env-default:"0.0.0.0"`
+	Port string `yaml:"port" env:"HTTP_PORT" env-default:"50083"`
+}
+
 // Addr возвращает адрес в формате host:port.
 func (g GRPCConfig) Addr() string {
+	return net.JoinHostPort(g.Host, g.Port)
+}
+
+// Addr возвращает адрес в формате host:port.
+func (g HTTPConfig) Addr() string {
 	return net.JoinHostPort(g.Host, g.Port)
 }
 
@@ -69,9 +81,11 @@ func MustLoad(path string) *Config {
 
 // Load загружает конфигурацию по приоритету:
 // 1) явный путь; 2) CONFIG_PATH; 3) ./local.yaml; 4) ENV.
+// ВАЖНО: после чтения файла накладываем ENV-переменные поверх значений из YAML.
 func Load(path string) (*Config, error) {
 	var cfg Config
 
+	// чтение файла + overlay ENV.
 	tryRead := func(p string) (*Config, error) {
 		if p == "" {
 			return nil, fmt.Errorf("empty config path")
@@ -84,13 +98,17 @@ func Load(path string) (*Config, error) {
 		if err := cleanenv.ReadConfig(p, &cfg); err != nil {
 			return nil, fmt.Errorf("failed to read config: %w", err)
 		}
+
+		if err := cleanenv.ReadEnv(&cfg); err != nil {
+			return nil, fmt.Errorf("failed to overlay env: %w", err)
+		}
+
 		return &cfg, nil
 	}
 
 	// 1) Явный путь.
 	if path != "" {
 		c, err := tryRead(path)
-
 		if err != nil {
 			return nil, err
 		}
@@ -121,6 +139,10 @@ func Load(path string) (*Config, error) {
 	if _, err := os.Stat("local.yaml"); err == nil {
 		if err := cleanenv.ReadConfig("local.yaml", &cfg); err != nil {
 			return nil, fmt.Errorf("failed to read local.yaml: %w", err)
+		}
+
+		if err := cleanenv.ReadEnv(&cfg); err != nil {
+			return nil, fmt.Errorf("failed to overlay env: %w", err)
 		}
 
 		if err := cfg.validate(); err != nil {
@@ -165,6 +187,18 @@ func (c *Config) validate() error {
 
 	if p, err := strconv.Atoi(c.GRPC.Port); err != nil || p <= 0 || p > 65535 {
 		return fmt.Errorf("grpc.port must be a valid TCP port (1..65535)")
+	}
+
+	if c.HTTP.Host == "" {
+		return fmt.Errorf("http.host is required")
+	}
+
+	if c.HTTP.Port == "" {
+		return fmt.Errorf("http.port is required")
+	}
+
+	if p, err := strconv.Atoi(c.HTTP.Port); err != nil || p <= 0 || p > 65535 {
+		return fmt.Errorf("http.port must be a valid TCP port (1..65535)")
 	}
 
 	if c.S3.Endpoint == "" {

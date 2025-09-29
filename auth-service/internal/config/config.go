@@ -19,6 +19,7 @@ import (
 //  4. переменные окружения (cleanenv).
 type Config struct {
 	Env      string        `yaml:"env" env:"ENV" env-default:"local"`
+	HTTP     HTTPConfig    `yaml:"http"`
 	GRPC     GRPCConfig    `yaml:"grpc"`
 	Auth     AuthConfig    `yaml:"auth"`
 	DB       DBConfig      `yaml:"db"`
@@ -30,10 +31,21 @@ type TimeoutConfig struct {
 	Service time.Duration `yaml:"service" env:"SERVICE" env-default:"5s"`
 }
 
+// HTTPConfig — сетевые настройки HTTP-сервера.
+type HTTPConfig struct {
+	Host string `yaml:"host" env:"HTTP_HOST" env-default:"0.0.0.0"`
+	Port string `yaml:"port" env:"HTTP_PORT" env-default:"50081"`
+}
+
 // GRPCConfig описывает сетевые настройки gRPC-сервера.
 type GRPCConfig struct {
 	Host string `yaml:"host" env:"HOST" env-default:"0.0.0.0"`
 	Port string `yaml:"port" env:"PORT" env-default:"50051"`
+}
+
+// Addr возвращает адрес в формате host:port.
+func (g HTTPConfig) Addr() string {
+	return net.JoinHostPort(g.Host, g.Port)
 }
 
 // Addr возвращает адрес в формате host:port.
@@ -66,45 +78,67 @@ func MustLoad(path string) *Config {
 }
 
 // Load загружает конфигурацию по приоритету:
-// 1. явный путь (аргумент функции, передаётся из main через флаг --config);
-// 2. переменная окружения CONFIG_PATH;
-// 3. файл ./local.yaml;
-// 4. иначе - из переменных окружения.
+// 1) явный путь; 2) CONFIG_PATH; 3) ./local.yaml; 4) ENV.
+// ВАЖНО: после чтения файла накладываем ENV-переменные поверх значений из YAML.
 func Load(path string) (*Config, error) {
 	var cfg Config
 
+	// чтение файла + overlay ENV.
 	tryRead := func(p string) (*Config, error) {
 		if p == "" {
 			return nil, fmt.Errorf("empty config path")
 		}
 
 		if _, err := os.Stat(p); err != nil {
-			return nil, fmt.Errorf("config file does not exist: %s", p)
+			return nil, fmt.Errorf("config file %q stat failed: %w", p, err)
 		}
 
 		if err := cleanenv.ReadConfig(p, &cfg); err != nil {
 			return nil, fmt.Errorf("failed to read config: %w", err)
 		}
 
-		return &cfg, nil
-	}
-
-	if path != "" {
-		return tryRead(path)
-	}
-
-	if envPath := os.Getenv("CONFIG_PATH"); envPath != "" {
-		return tryRead(envPath)
-	}
-
-	if _, err := os.Stat("local.yaml"); err == nil {
-		if err := cleanenv.ReadConfig("local.yaml", &cfg); err != nil {
-			return nil, fmt.Errorf("failed to read local.yaml: %w", err)
+		if err := cleanenv.ReadEnv(&cfg); err != nil {
+			return nil, fmt.Errorf("failed to overlay env: %w", err)
 		}
 
 		return &cfg, nil
 	}
 
+	// 1) Явный путь.
+	if path != "" {
+		c, err := tryRead(path)
+		if err != nil {
+			return nil, err
+		}
+
+		return c, nil
+	}
+
+	// 2) CONFIG_PATH.
+	if envPath := os.Getenv("CONFIG_PATH"); envPath != "" {
+		c, err := tryRead(envPath)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return c, nil
+	}
+
+	// 3) ./local.yaml.
+	if _, err := os.Stat("local.yaml"); err == nil {
+		if err := cleanenv.ReadConfig("local.yaml", &cfg); err != nil {
+			return nil, fmt.Errorf("failed to read local.yaml: %w", err)
+		}
+
+		if err := cleanenv.ReadEnv(&cfg); err != nil {
+			return nil, fmt.Errorf("failed to overlay env: %w", err)
+		}
+
+		return &cfg, nil
+	}
+
+	// 4) Только ENV.
 	if err := cleanenv.ReadEnv(&cfg); err != nil {
 		return nil, fmt.Errorf("config not found: provide --config, CONFIG_PATH, local.yaml or env vars: %w", err)
 	}

@@ -5,4 +5,5 @@ use (
 	./auth-service
 	./news-service
 	./users-service
+	./comments-service
 )

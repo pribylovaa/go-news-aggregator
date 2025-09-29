@@ -1,0 +1,20 @@
+# CI
+.git
+.github
+
+# macOS
+.DS_Store
+
+# Node/Frontend/Temp
+**/node_modules
+**/dist
+**/build
+**/.cache
+**/*.log
+**/tmp
+**/.env*
+**/.vscode
+**/.idea
+
+# OS мусор за пределами репо
+.Trash

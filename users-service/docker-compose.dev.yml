@@ -1,5 +1,3 @@
-version: "3.9"
-
 name: users-service-dev
 
 services:
@@ -19,7 +17,7 @@ services:
       retries: 10
       start_period: 5s
     ports:
-      - "5435:5432" 
+      - "5435:5432"
     networks: [go-news-net]
 
   users-migrate:
@@ -41,6 +39,11 @@ services:
     environment:
       MINIO_ROOT_USER: administrator
       MINIO_ROOT_PASSWORD: administrator
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
     volumes:
       - minio-data:/data
     ports:
@@ -50,18 +53,23 @@ services:
       go-news-net:
         aliases:
           - minio
-          
+
   minio-init:
     image: minio/mc:latest
     container_name: users-minio-init
     depends_on:
       minio:
-        condition: service_started
-    entrypoint: ["/bin/sh","-c"]
-    command: >
-      until (/usr/bin/mc alias set local http://minio:9000 administrator administrator); do sleep 1; done &&
-      /usr/bin/mc mb -p local/avatars || true &&
-      /usr/bin/mc anonymous set download local/avatars || true
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        sleep 5 
+        mc alias set local http://minio:9000 administrator administrator && 
+        mc mb local/avatars
+      "
+    environment:
+      MINIO_ROOT_USER: administrator
+      MINIO_ROOT_PASSWORD: administrator
+    restart: "no"
     networks: [go-news-net]
 
   users-service:
@@ -70,6 +78,8 @@ services:
     depends_on:
       users-migrate:
         condition: service_completed_successfully
+      minio:
+        condition: service_healthy
       minio-init:
         condition: service_completed_successfully
     environment:
@@ -82,6 +92,7 @@ services:
 
 volumes:
   data:
+  minio-data:
 
 networks:
   go-news-net:

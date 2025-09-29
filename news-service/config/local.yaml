@@ -4,6 +4,10 @@ grpc:
   host: "0.0.0.0"
   port: "50052"
 
+http:
+  host: "0.0.0.0"
+  port: "50082"
+
 db:
   url: "postgres://administrator:administrator@news-db:5432/news?sslmode=disable"
 
