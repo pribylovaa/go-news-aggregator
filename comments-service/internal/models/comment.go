@@ -18,18 +18,18 @@ import (
 //   - ExpiresAt — единая «дата смерти» ветки; у ответов совпадает с корнем (TTL-индекс).
 //   - CreatedAt/UpdatedAt — наружу/внутрь gRPC конвертируем в int64.
 type Comment struct {
-	ID           string
-	NewsID       uuid.UUID
-	ParentID     string
-	UserID       uuid.UUID
-	Username     string
-	Content      string
-	Level        int32
-	RepliesCount int32
-	IsDeleted    bool
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	ExpiresAt    time.Time
+	ID           string    `bson:"_id,omitempty"`
+	NewsID       uuid.UUID `bson:"news_id"`
+	ParentID     string    `bson:"parent_id,omitempty"`
+	UserID       uuid.UUID `bson:"username"`
+	Username     string    `bson:"user_id"`
+	Content      string    `bson:"content"`
+	Level        int32     `bson:"level"`
+	RepliesCount int32     `bson:"replies_count"`
+	IsDeleted    bool      `bson:"is_deleted"`
+	CreatedAt    time.Time `bson:"created_at"`
+	UpdatedAt    time.Time `bson:"updated_at"`
+	ExpiresAt    time.Time `bson:"expires_at"`
 }
 
 // ListParams — базовые параметры постраничной выдачи.
