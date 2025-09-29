@@ -1,0 +1,49 @@
+version: "3.9"
+
+name: comments-service-dev
+
+services:
+  comments-db:
+    image: mongo:7.0
+    container_name: comments-db
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: administrator
+      MONGO_INITDB_PASSWORD: administrator
+      MONGO_INITDB_DATABASE: comments
+    volumes:
+      - data:/var/lib/mongo/data
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep 1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    networks: [go-news-net]
+
+  comments-service:
+    image: ghcr.io/pribylovaa/go-news-aggregator/comments-service:latest
+    container_name: comments-service
+    restart: unless-stopped
+    environment:
+      CONFIG_PATH: /etc/comments-service/config.yaml
+    depends_on:
+      comments-db:
+        condition: service_healthy
+    volumes:
+      - ./config/local.yaml:/etc/comments-service/config.yaml:ro
+    ports:
+      - "8080:8080"     # HTTP: /livez, /healthz, /metrics
+      - "50051:50051"   # gRPC
+    networks: [go-news-net]
+
+
+volumes:
+  data:
+
+networks:
+  go-news-net:
+    external: true
+    name: go-news-net
