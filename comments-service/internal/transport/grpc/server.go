@@ -1,17 +1,15 @@
-// Package grpc содержит реализацию gRPC-эндпоинтов CommentsService.
+// Реализация gRPC-эндпоинтов CommentsService по контракту comments.v1.
 //
-// Принципы:
-//   - Контекст запроса прокидывается в сервис без потерь;
-//   - Входные данные валидируются на уровне транспорта (например, UUID);
-//   - Ошибки сервиса маппятся в коды gRPC:
-//     ErrInvalidArgument  -> codes.InvalidArgument
-//     ErrNotFound         -> codes.NotFound
-//     ErrConflict         -> codes.AlreadyExists
-//     ErrParentNotFound   -> codes.NotFound
-//     ErrThreadExpired    -> codes.FailedPrecondition
-//     ErrMaxDepthExceeded -> codes.FailedPrecondition
-//     ErrInvalidCursor    -> codes.InvalidArgument
-//     иные                -> codes.Internal (единое безопасное сообщение).
+// Маппинг ошибок сервиса в коды gRPC:
+//
+//	ErrInvalidArgument        -> codes.InvalidArgument
+//	ErrNotFound               -> codes.NotFound
+//	ErrConflict               -> codes.AlreadyExists
+//	ErrParentNotFound         -> codes.NotFound
+//	ErrThreadExpired          -> codes.FailedPrecondition
+//	ErrMaxDepthExceeded       -> codes.FailedPrecondition
+//	ErrInvalidCursor          -> codes.InvalidArgument
+//	прочее                    -> codes.Internal
 package grpc
 
 import (
@@ -23,9 +21,9 @@ import (
 	commentsv1 "github.com/pribylovaa/go-news-aggregator/comments-service/gen/go/comments"
 	"github.com/pribylovaa/go-news-aggregator/comments-service/internal/models"
 	"github.com/pribylovaa/go-news-aggregator/comments-service/internal/service"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // CommentsServer — gRPC-сервер CommentsService.
@@ -34,13 +32,13 @@ type CommentsServer struct {
 	service *service.Service
 }
 
-// NewCommentsServer создаёт gRPC-сервер CommentsService.
 func NewCommentsServer(svc *service.Service) *CommentsServer {
 	return &CommentsServer{service: svc}
 }
 
-// CreateComment создаёт корневой комментарий или ответ.
-func (s *CommentsServer) CreateComment(ctx context.Context, req *commentsv1.CreateCommentRequest) (*commentsv1.Comment, error) {
+// CreateComment — создание корня или ответа.
+// Возвращает CreateCommentResponse с вложенным Comment.
+func (s *CommentsServer) CreateComment(ctx context.Context, req *commentsv1.CreateCommentRequest) (*commentsv1.CreateCommentResponse, error) {
 	const op = "transport/grpc/comments/CreateComment"
 
 	// user_id обязателен и должен быть UUID.
@@ -49,7 +47,9 @@ func (s *CommentsServer) CreateComment(ctx context.Context, req *commentsv1.Crea
 		return nil, status.Errorf(codes.InvalidArgument, "%s: invalid user_id: %v", op, err)
 	}
 
-	// Если parent_id пуст — это корневой комментарий, news_id обязателен (UUID).
+	// Если parent_id пуст — это корневой комментарий: news_id обязателен (UUID).
+	// Если parent_id не пуст — игнорируем news_id (его унаследует сторедж от родителя);
+	// даже если клиент прислал news_id, на этой ветке не валидируем его, чтобы не ломать UX.
 	var newsID uuid.UUID
 	parentID := strings.TrimSpace(req.GetParentId())
 	newsStr := strings.TrimSpace(req.GetNewsId())
@@ -57,11 +57,6 @@ func (s *CommentsServer) CreateComment(ctx context.Context, req *commentsv1.Crea
 		newsID, err = uuid.Parse(newsStr)
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "%s: invalid news_id: %v", op, err)
-		}
-	} else if newsStr != "" {
-		// Если клиент всё-таки передал news_id для ответа — парсим и передаём (сервис унаследует от родителя).
-		if parsed, perr := uuid.Parse(newsStr); perr == nil {
-			newsID = parsed
 		}
 	}
 
@@ -87,17 +82,15 @@ func (s *CommentsServer) CreateComment(ctx context.Context, req *commentsv1.Crea
 		}
 	}
 
-	return toProtoComment(*res), nil
+	return &commentsv1.CreateCommentResponse{Comment: toProtoComment(*res)}, nil
 }
 
-// DeleteComment выполняет мягкое удаление комментария по ID.
-func (s *CommentsServer) DeleteComment(ctx context.Context, req *commentsv1.DeleteCommentRequest) (*emptypb.Empty, error) {
+// DeleteComment — мягкое удаление. Возвращает пустую DeleteCommentResponse.
+func (s *CommentsServer) DeleteComment(ctx context.Context, req *commentsv1.DeleteCommentRequest) (*commentsv1.DeleteCommentResponse, error) {
 	const op = "transport/grpc/comments/DeleteComment"
 
 	id := strings.TrimSpace(req.GetId())
-
-	err := s.service.DeleteComment(ctx, id)
-	if err != nil {
+	if err := s.service.DeleteComment(ctx, id); err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidArgument):
 			return nil, status.Errorf(codes.InvalidArgument, "%s: %v", op, err)
@@ -108,11 +101,11 @@ func (s *CommentsServer) DeleteComment(ctx context.Context, req *commentsv1.Dele
 		}
 	}
 
-	return &emptypb.Empty{}, nil
+	return &commentsv1.DeleteCommentResponse{}, nil
 }
 
-// CommentByID возвращает комментарий по идентификатору.
-func (s *CommentsServer) CommentByID(ctx context.Context, req *commentsv1.CommentByIDRequest) (*commentsv1.Comment, error) {
+// CommentByID — вернуть комментарий по id (в обёртке CommentByIDResponse).
+func (s *CommentsServer) CommentByID(ctx context.Context, req *commentsv1.CommentByIDRequest) (*commentsv1.CommentByIDResponse, error) {
 	const op = "transport/grpc/comments/CommentByID"
 
 	id := strings.TrimSpace(req.GetId())
@@ -132,10 +125,10 @@ func (s *CommentsServer) CommentByID(ctx context.Context, req *commentsv1.Commen
 		}
 	}
 
-	return toProtoComment(*res), nil
+	return &commentsv1.CommentByIDResponse{Comment: toProtoComment(*res)}, nil
 }
 
-// ListByNews возвращает страницу корневых комментариев по идентификатору новости.
+// ListByNews — страница корневых комментариев по news_id.
 func (s *CommentsServer) ListByNews(ctx context.Context, req *commentsv1.ListByNewsRequest) (*commentsv1.ListByNewsResponse, error) {
 	const op = "transport/grpc/comments/ListByNews"
 
@@ -158,20 +151,19 @@ func (s *CommentsServer) ListByNews(ctx context.Context, req *commentsv1.ListByN
 		}
 	}
 
-	// Конвертация без вспомогательной функции: собираем массив вручную.
-	comments := make([]*commentsv1.Comment, 0, len(page.Items))
+	// Собираем repeated Comment вручную.
+	items := make([]*commentsv1.Comment, 0, len(page.Items))
 	for i := range page.Items {
-		comments = append(comments, toProtoComment(page.Items[i]))
+		items = append(items, toProtoComment(page.Items[i]))
 	}
 
-	out := &commentsv1.ListByNewsResponse{
-		Comments:      comments,
+	return &commentsv1.ListByNewsResponse{
+		Comments:      items,
 		NextPageToken: page.NextPageToken,
-	}
-	return out, nil
+	}, nil
 }
 
-// ListReplies возвращает страницу ответов для одного parent_id.
+// ListReplies — страница ответов в пределах ветки по parent_id.
 func (s *CommentsServer) ListReplies(ctx context.Context, req *commentsv1.ListRepliesRequest) (*commentsv1.ListRepliesResponse, error) {
 	const op = "transport/grpc/comments/ListReplies"
 
@@ -194,19 +186,18 @@ func (s *CommentsServer) ListReplies(ctx context.Context, req *commentsv1.ListRe
 		}
 	}
 
-	// Конвертация без вспомогательной функции: собираем массив вручную.
-	comments := make([]*commentsv1.Comment, 0, len(page.Items))
+	items := make([]*commentsv1.Comment, 0, len(page.Items))
 	for i := range page.Items {
-		comments = append(comments, toProtoComment(page.Items[i]))
+		items = append(items, toProtoComment(page.Items[i]))
 	}
 
-	out := &commentsv1.ListRepliesResponse{
-		Comments:      comments,
+	return &commentsv1.ListRepliesResponse{
+		Comments:      items,
 		NextPageToken: page.NextPageToken,
-	}
-	return out, nil
+	}, nil
 }
 
+// toProtoComment — конвертация доменной модели в protobuf.
 func toProtoComment(c models.Comment) *commentsv1.Comment {
 	return &commentsv1.Comment{
 		Id:           c.ID,

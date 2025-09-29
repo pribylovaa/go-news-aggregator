@@ -51,5 +51,5 @@ type Storage interface {
 	ListReplies(ctx context.Context, parentID string, p models.ListParams) (*models.Page, error)
 
 	// Close закрывает соединения/ресурсы хранилища.
-	Close(ctx context.Context)
+	Close(ctx context.Context) error
 }

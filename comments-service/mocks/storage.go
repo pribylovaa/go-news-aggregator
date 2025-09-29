@@ -36,9 +36,11 @@ func (m *MockStorage) EXPECT() *MockStorageMockRecorder {
 }
 
 // Close mocks base method.
-func (m *MockStorage) Close(ctx context.Context) {
+func (m *MockStorage) Close(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Close", ctx)
+	ret := m.ctrl.Call(m, "Close", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Close indicates an expected call of Close.

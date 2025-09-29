@@ -188,34 +188,37 @@ func TestGRPC_CreateComment_OK(t *testing.T) {
 	ms.EXPECT().
 		CreateComment(gomock.Any(), gomock.AssignableToTypeOf(models.Comment{})).
 		DoAndReturn(func(_ context.Context, c models.Comment) (*models.Comment, error) {
-			// базовая проверка того, что транспорт собрал входы корректно
 			require.Equal(t, uid, c.UserID)
 			require.Equal(t, nid, c.NewsID)
 			require.Equal(t, "", c.ParentID)
-			require.Equal(t, "alice", c.Username)
-			require.Equal(t, "hello", c.Content)
+			require.Equal(t, "alice", c.Username) // TrimSpace произошёл в сервисе
+			require.Equal(t, "hello", c.Content)  // TrimSpace произошёл в сервисе
 			return want, nil
 		})
 
-	got, err := srv.CreateComment(context.Background(), &commentsv1.CreateCommentRequest{
+	resp, err := srv.CreateComment(context.Background(), &commentsv1.CreateCommentRequest{
 		UserId:   uid.String(),
 		NewsId:   nid.String(),
 		Username: "  alice  ",
 		Content:  "  hello  ",
 	})
 	require.NoError(t, err)
-	require.Equal(t, want.ID, got.GetId())
-	require.Equal(t, nid.String(), got.GetNewsId())
-	require.Equal(t, "", got.GetParentId())
-	require.Equal(t, uid.String(), got.GetUserId())
-	require.Equal(t, "alice", got.GetUsername())
-	require.Equal(t, "hello", got.GetContent())
-	require.EqualValues(t, want.Level, got.GetLevel())
-	require.EqualValues(t, want.RepliesCount, got.GetRepliesCount())
-	require.Equal(t, want.IsDeleted, got.GetIsDeleted())
-	require.Equal(t, want.CreatedAt.Unix(), got.GetCreatedAt())
-	require.Equal(t, want.UpdatedAt.Unix(), got.GetUpdatedAt())
-	require.Equal(t, want.ExpiresAt.Unix(), got.GetExpiresAt())
+
+	c := resp.GetComment()
+	require.NotNil(t, c, "response.Comment must be set")
+
+	require.Equal(t, want.ID, c.GetId())
+	require.Equal(t, nid.String(), c.GetNewsId())
+	require.Equal(t, "", c.GetParentId())
+	require.Equal(t, uid.String(), c.GetUserId())
+	require.Equal(t, "alice", c.GetUsername())
+	require.Equal(t, "hello", c.GetContent())
+	require.EqualValues(t, want.Level, c.GetLevel())
+	require.EqualValues(t, want.RepliesCount, c.GetRepliesCount())
+	require.Equal(t, want.IsDeleted, c.GetIsDeleted())
+	require.Equal(t, want.CreatedAt.Unix(), c.GetCreatedAt())
+	require.Equal(t, want.UpdatedAt.Unix(), c.GetUpdatedAt())
+	require.Equal(t, want.ExpiresAt.Unix(), c.GetExpiresAt())
 }
 
 // Пустой id -> InvalidArgument (на уровне сервиса).
@@ -290,20 +293,24 @@ func TestGRPC_CommentByID_OK(t *testing.T) {
 	want := mustComment(uuid.New(), "", "bob", "hi")
 	ms.EXPECT().CommentByID(gomock.Any(), want.ID).Return(want, nil)
 
-	got, err := srv.CommentByID(context.Background(), &commentsv1.CommentByIDRequest{Id: want.ID})
+	resp, err := srv.CommentByID(context.Background(), &commentsv1.CommentByIDRequest{Id: want.ID})
 	require.NoError(t, err)
-	require.Equal(t, want.ID, got.GetId())
-	require.Equal(t, want.NewsID.String(), got.GetNewsId())
-	require.Equal(t, want.ParentID, got.GetParentId())
-	require.Equal(t, want.UserID.String(), got.GetUserId())
-	require.Equal(t, want.Username, got.GetUsername())
-	require.Equal(t, want.Content, got.GetContent())
-	require.EqualValues(t, want.Level, got.GetLevel())
-	require.EqualValues(t, want.RepliesCount, got.GetRepliesCount())
-	require.Equal(t, want.IsDeleted, got.GetIsDeleted())
-	require.Equal(t, want.CreatedAt.Unix(), got.GetCreatedAt())
-	require.Equal(t, want.UpdatedAt.Unix(), got.GetUpdatedAt())
-	require.Equal(t, want.ExpiresAt.Unix(), got.GetExpiresAt())
+
+	c := resp.GetComment()
+	require.NotNil(t, c, "response.Comment must be set")
+
+	require.Equal(t, want.ID, c.GetId())
+	require.Equal(t, want.NewsID.String(), c.GetNewsId())
+	require.Equal(t, want.ParentID, c.GetParentId())
+	require.Equal(t, want.UserID.String(), c.GetUserId())
+	require.Equal(t, want.Username, c.GetUsername())
+	require.Equal(t, want.Content, c.GetContent())
+	require.EqualValues(t, want.Level, c.GetLevel())
+	require.EqualValues(t, want.RepliesCount, c.GetRepliesCount())
+	require.Equal(t, want.IsDeleted, c.GetIsDeleted())
+	require.Equal(t, want.CreatedAt.Unix(), c.GetCreatedAt())
+	require.Equal(t, want.UpdatedAt.Unix(), c.GetUpdatedAt())
+	require.Equal(t, want.ExpiresAt.Unix(), c.GetExpiresAt())
 }
 
 // Неверный UUID news_id валидируется на уровне транспорта.
