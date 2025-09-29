@@ -20,9 +20,9 @@ import (
 type Comment struct {
 	ID           string    `bson:"_id,omitempty"`
 	NewsID       uuid.UUID `bson:"news_id"`
-	ParentID     string    `bson:"parent_id,omitempty"`
-	UserID       uuid.UUID `bson:"username"`
-	Username     string    `bson:"user_id"`
+	ParentID     string    `bson:"parent_id"`
+	UserID       uuid.UUID `bson:"user_id"`
+	Username     string    `bson:"username"`
 	Content      string    `bson:"content"`
 	Level        int32     `bson:"level"`
 	RepliesCount int32     `bson:"replies_count"`
