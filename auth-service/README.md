@@ -72,6 +72,8 @@ Proto‑схемы лежат в `auth.proto`, сгенерированные т
 | `env`                    | `ENV`               | `local`          |
 | `grpc.host`              | `HOST`              | `0.0.0.0`        |
 | `grpc.port`              | `PORT`              | `50051`          |
+| `http.host`              | `HTTP_HOST`         | `0.0.0.0`        |
+| `http.port`              | `HTTP_PORT`         | `50081`          |
 | `auth.jwt_secret`        | `JWT_SECRET`        | **required**     |
 | `auth.access_token_ttl`  | `ACCESS_TOKEN_TTL`  | `15m`            |
 | `auth.refresh_token_ttl` | `REFRESH_TOKEN_TTL` | `720h`           |

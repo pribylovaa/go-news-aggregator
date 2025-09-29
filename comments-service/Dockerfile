@@ -1,5 +1,4 @@
 # syntax=docker/dockerfile:1.7
-
 # Builder
 FROM golang:1.24-bookworm AS builder
 
@@ -12,10 +11,10 @@ WORKDIR /src
 
 # Оптимизация кеша модулей: сначала переносим только go.mod/go.sum,
 # чтобы go mod download кешировался отдельно от исходников.
-COPY auth-service/go.mod auth-service/go.sum ./auth-service/
+COPY comments-service/go.mod comments-service/go.sum ./comments-service/
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    cd ./auth-service && go mod download
+    cd ./comments-service && go mod download
 
 # Теперь копируем остальной репозиторий
 COPY . .
@@ -27,23 +26,22 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 \
     GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -trimpath -buildvcs=false -ldflags="-s -w" \
-      -o /out/auth-service ./auth-service/cmd/auth-service
-
+      -o /out/comments-service ./comments-service/cmd/comments-service
 
 # Runtime (non-root)
 FROM gcr.io/distroless/static-debian12:nonroot
 
 WORKDIR /app
 
-LABEL org.opencontainers.image.title="auth-service" \
+LABEL org.opencontainers.image.title="comments-service" \
       org.opencontainers.image.source="https://github.com/pribylovaa/go-news-aggregator"
 
-COPY --from=builder /out/auth-service /usr/local/bin/auth-service
+COPY --from=builder /out/comments-service /usr/local/bin/comments-service
 
-ENV CONFIG_PATH=/etc/auth-service/config.yaml
+ENV CONFIG_PATH=/etc/comments-service/config.yaml
 
-EXPOSE 50051
-EXPOSE 50081
+EXPOSE 50054
+EXPOSE 50084
 
 USER nonroot:nonroot
-ENTRYPOINT ["/usr/local/bin/auth-service"]
+ENTRYPOINT ["/usr/local/bin/comments-service"]

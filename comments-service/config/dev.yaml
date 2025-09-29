@@ -1,0 +1,23 @@
+env: "dev"
+
+grpc:
+  host: "0.0.0.0"
+  port: "50054"
+
+http:
+  host: "0.0.0.0"
+  port: "50084"
+
+db:
+  url: "mongodb://administrator:administrator@comments-db:27017/comments"
+
+limits:
+  default: 20
+  max: 300
+  max_depth: 6
+
+ttl:
+  thread: "168h"
+
+timeouts:
+  service: 5s
