@@ -1,8 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-############################
 # Builder
-############################
 FROM golang:1.24-bookworm AS builder
 
 # Эти ARG автоматически пробрасываются Buildx при сборке под разные платформы
@@ -31,9 +29,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go build -trimpath -buildvcs=false -ldflags="-s -w" \
       -o /out/auth-service ./auth-service/cmd/auth-service
 
-############################
+
 # Runtime (non-root)
-############################
 FROM gcr.io/distroless/static-debian12:nonroot
 
 WORKDIR /app

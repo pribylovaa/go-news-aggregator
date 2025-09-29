@@ -91,6 +91,8 @@ message News {
 | `env`              | `ENV`               | `local`      |
 | `grpc.host`        | `GRPC_HOST`         | `0.0.0.0`    |
 | `grpc.port`        | `GRPC_PORT`         | `50052`      |
+| `http.host`        | `HTTP_HOST`         | `0.0.0.0`    |
+| `http.port`        | `HTTP_PORT`         | `50082`      |
 | `db.url`           | `DATABASE_URL`      | **required** |
 | `fetcher.sources`  | `RSS_SOURCES` (CSV) | —            |
 | `fetcher.interval` | `FETCH_INTERVAL`    | `10m` (≥ 1m) |

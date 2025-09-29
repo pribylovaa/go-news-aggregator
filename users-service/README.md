@@ -79,6 +79,8 @@ rpc ConfirmAvatarUpload    (ConfirmAvatarUploadRequest) returns (Profile);
 | `env`                          | `ENV`                                | `local`                |
 | `grpc.host`                    | `GRPC_HOST`                          | `0.0.0.0`              |
 | `grpc.port`                    | `GRPR_PORT`                          | `50053`                |
+| `http.host`                    | `HTTP_HOST`                          | `0.0.0.0`              |
+| `http.port`                    | `HTTP_PORT`                          | `50083`                |
 | `postgres.url`                 | `POSTGRES`                           | **required**           |
 | `s3.endpoint`                  | `S3_ENDPOINT`                        | **required**           |
 | `s3.root_user`                 | `S3_ROOT_USER`                       | **required**           |
