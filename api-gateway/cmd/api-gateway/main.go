@@ -20,7 +20,6 @@ import (
 	gwhttp "github.com/pribylovaa/go-news-aggregator/api-gateway/internal/http"
 )
 
-// Константы окружения — как в auth-сервисе.
 const (
 	envLocal = "local"
 	envDev   = "dev"
