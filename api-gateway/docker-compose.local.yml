@@ -1,0 +1,24 @@
+version: "3.9"
+
+name: api-gateway-local
+
+services:
+  api-gateway:
+    image: ghcr.io/pribylovaa/go-news-aggregator/api-gateway:latest
+    container_name: api-gateway
+    environment:
+      CONFIG_PATH: /etc/api-gateway/config.yaml
+    volumes:
+      - ./config/local.yaml:/etc/api-gateway/config.yaml:ro
+    ports:
+      - "50090:50090"
+      - "50085:50085"
+    networks: [go-news-net]
+
+volumes:
+  data:
+
+networks:
+  go-news-net:
+    external: true
+    name: go-news-net
