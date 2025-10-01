@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/cache"
+
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -66,6 +68,19 @@ func main() {
 	srvc := service.New(str, cfg.Auth)
 	log.Info("service_initialized")
 
+	// Redis cache (optional best-effort)
+	var rcache cache.RefreshCache
+	if cfg.Redis.RedisURL != "" {
+		c, err := cache.NewRedisCache(cfg.Redis.RedisURL, "auth:rt:")
+		if err != nil {
+			log.Warn("redis_connect_failed", slog.String("err", err.Error()))
+		} else {
+			rcache = c
+			srvc.SetRefreshCache(rcache)
+			log.Info("redis_connected")
+		}
+	}
+
 	var ready int32 // 0 — not ready; 1 — ready
 	httpAddr := cfg.HTTP.Addr()
 
@@ -76,6 +91,7 @@ func main() {
 	})
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		// health-запрос проксируем в gRPC health-сервис (ниже он ставится в SERVING)
 		if atomic.LoadInt32(&ready) == 1 {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("ok"))
@@ -93,15 +109,14 @@ func main() {
 	}
 
 	go func() {
-		log.Info("http_listen_start", "addr", httpAddr)
+		log.Info("http_listen_start", slog.String("addr", httpAddr))
 		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error("http_serve_failed", slog.String("err", err.Error()))
+			log.Error("http_listen_failed", slog.String("err", err.Error()))
+			rootCancel()
 		}
 	}()
 
-	grpc_prometheus.EnableHandlingTimeHistogram()
-
-	// gRPC-сервер и интерсепторы.
+	// gRPC сервер и интерсепторы.
 	grpcOpts := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
 			interceptors.Recover(log),
@@ -132,13 +147,16 @@ func main() {
 
 	// Старт gRPC-сервера.
 	addr := cfg.GRPC.Addr()
-	listener, err := net.Listen("tcp", addr)
+	li, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Error("grpc_listen_failed",
 			slog.String("addr", addr),
 			slog.String("err", err.Error()),
 		)
 		rootCancel()
+		if rcache != nil {
+			_ = rcache.Close()
+		}
 		str.Close()
 		os.Exit(1)
 	}
@@ -152,27 +170,24 @@ func main() {
 
 	serveErrCh := make(chan error, 1)
 	go func() {
-		if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+		if err := grpcServer.Serve(li); err != nil {
 			serveErrCh <- err
 		}
-		close(serveErrCh)
 	}()
 
-	// Ожидание сигнала завершения или фатальной ошибки сервера.
+	// Ожидание завершения по сигналу или ошибке сервера.
 	select {
 	case <-rootCtx.Done():
-		log.Info("shutdown_requested")
+		log.Info("shutdown_signal_received")
 	case err := <-serveErrCh:
-		if err != nil {
-			log.Error("grpc_serve_failed", slog.String("err", err.Error()))
-		}
+		log.Error("grpc_serve_failed", slog.String("err", err.Error()))
 	}
 
-	// Переводим в NOT_SERVING и снимаем ready.
+	// Переводим health в NOT_SERVING.
 	hs.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
 	atomic.StoreInt32(&ready, 0)
 
-	// Graceful stop с таймаутом.
+	// Грейсфул остановка gRPC с таймаутом.
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	done := make(chan struct{})
@@ -195,6 +210,9 @@ func main() {
 	// Явная очистка перед выходом.
 	shutdownCancel()
 	rootCancel()
+	if rcache != nil {
+		_ = rcache.Close()
+	}
 	str.Close()
 
 	log.Info("service_stopped")
@@ -212,7 +230,7 @@ func setupLogger(env string) *slog.Logger {
 		)
 	case envDev:
 		log = slog.New(
-			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
 		)
 	case envProd:
 		log = slog.New(
@@ -227,13 +245,8 @@ func setupLogger(env string) *slog.Logger {
 	return log
 }
 
-// startRefreshJanitor запускает фоновую задачу, которая периодически удаляет
-// просроченные refresh-токены из хранилища с помощью storage.DeleteExpiredTokens.
-func startRefreshJanitor(ctx context.Context, storage storage.Storage, log *slog.Logger, period time.Duration) {
-	if period <= 0 {
-		return
-	}
-
+// startRefreshJanitor запускает фонового сборщика просроченных refresh-токенов.
+func startRefreshJanitor(ctx context.Context, storage storage.RefreshTokenStorage, log *slog.Logger, period time.Duration) {
 	go func() {
 		t := time.NewTicker(period)
 		defer t.Stop()

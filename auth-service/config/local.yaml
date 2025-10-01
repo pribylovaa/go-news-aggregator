@@ -18,5 +18,8 @@ auth:
 db:
   db_url: "postgres://administrator:administrator@auth-db:5432/auth?sslmode=disable"
 
+redis:
+  redis_url: "redis://administrator:administrator@redis-db:6379/0"
+
 timeouts:
   service: 5s

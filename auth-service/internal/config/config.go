@@ -23,6 +23,7 @@ type Config struct {
 	GRPC     GRPCConfig    `yaml:"grpc"`
 	Auth     AuthConfig    `yaml:"auth"`
 	DB       DBConfig      `yaml:"db"`
+	Redis    RedisConfig   `yaml:"redis"`
 	Timeouts TimeoutConfig `yaml:"timeouts"`
 }
 
@@ -65,6 +66,10 @@ type AuthConfig struct {
 // DBConfig — настройки подключения к базе данных.
 type DBConfig struct {
 	DatabaseURL string `yaml:"db_url" env:"DATABASE_URL" env-required:"true"`
+}
+
+type RedisConfig struct {
+	RedisURL string `yaml:"redis_url" env:"REDIS_URL" env-required:"true"`
 }
 
 // MustLoad — обёртка над Load с panic при ошибке.
