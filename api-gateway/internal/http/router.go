@@ -2,7 +2,7 @@ package http
 
 import (
 	"log/slog"
-	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -16,11 +16,11 @@ import (
 type Options struct {
 	Logger   *slog.Logger
 	Timeout  time.Duration
-	BasePath string // например, "/api"; если пустой — роуты регистрируются на корне.
+	BasePath string
 }
 
-// NewRouter собирает http.Handler с chi и подключёнными middleware/роутами.
-func NewRouter(cl *clients.Clients, opts Options) http.Handler {
+// NewRouter собирает chi-роутер с подключёнными middleware и регистрацией хендлеров.
+func NewRouter(cl *clients.Clients, opts Options) chi.Router {
 	root := chi.NewRouter()
 
 	// Middleware (внешний -> внутренний).
@@ -38,10 +38,11 @@ func NewRouter(cl *clients.Clients, opts Options) http.Handler {
 	h := handlers.New(cl)
 
 	// Регистрация маршрутов.
-	if opts.BasePath != "" {
+	bp := normalizeBasePath(opts.BasePath)
+	if bp != "" {
 		sub := chi.NewRouter()
 		registerRoutes(sub, h)
-		root.Mount(opts.BasePath, sub)
+		root.Mount(bp, sub)
 		return root
 	}
 
@@ -73,4 +74,22 @@ func registerRoutes(r chi.Router, h *handlers.Handlers) {
 	r.Patch("/users/{id}", h.UpdateProfile)
 	r.Post("/users/{id}/avatar/presign", h.AvatarPresign)
 	r.Post("/users/{id}/avatar/confirm", h.AvatarConfirm)
+}
+
+// normalizeBasePath приводит BasePath к виду "/something" (или empty, если пустая строка).
+func normalizeBasePath(p string) string {
+	p = strings.TrimSpace(p)
+	if p == "" || p == "/" {
+		return ""
+	}
+
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+
+	for strings.Contains(p, "//") {
+		p = strings.ReplaceAll(p, "//", "/")
+	}
+
+	return p
 }

@@ -12,12 +12,13 @@ import (
 func (h *Handlers) ListNews(w http.ResponseWriter, r *http.Request) {
 	var req models.NewsListRequest
 	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.ParseInt(v, 10, 32); err == nil {
-			req.Limit = int32(n)
-		} else {
+		n, err := strconv.ParseInt(v, 10, 32)
+		if err != nil {
 			apierrors.WriteError(w, r, statusErrorInvalidArgument())
 			return
 		}
+
+		req.Limit = int32(n)
 	}
 
 	req.PageToken = r.URL.Query().Get("page_token")

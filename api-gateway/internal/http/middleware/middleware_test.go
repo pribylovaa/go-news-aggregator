@@ -58,8 +58,8 @@ func (h *capHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 
 func (h *capHandler) WithGroup(string) slog.Handler { return h }
 
-func makeReq(method, target string) *http.Request {
-	req := httptest.NewRequest(method, target, nil)
+func makeReq(target string) *http.Request {
+	req := httptest.NewRequest(http.MethodGet, target, nil)
 	req.RemoteAddr = (&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 12345}).String()
 	return req
 }
@@ -100,7 +100,7 @@ func TestChain_Order(t *testing.T) {
 
 	chain := Chain(final, m1, m2)
 	rr := httptest.NewRecorder()
-	chain.ServeHTTP(rr, makeReq(http.MethodGet, "/chain"))
+	chain.ServeHTTP(rr, makeReq("/chain"))
 
 	require.Equal(t, []string{"m1-begin", "m2-begin", "handler", "m2-end", "m1-end"}, order)
 	require.Equal(t, http.StatusTeapot, rr.Code)
@@ -120,7 +120,7 @@ func TestRequestID_GenerateAndPropagate(t *testing.T) {
 
 	chain := Chain(h, RequestID())
 	rr := httptest.NewRecorder()
-	req := makeReq(http.MethodGet, "/rid")
+	req := makeReq("/rid")
 	chain.ServeHTTP(rr, req)
 
 	respID := rr.Header().Get("X-Request-Id")
@@ -144,7 +144,7 @@ func TestRequestID_UseExisting(t *testing.T) {
 
 	chain := Chain(h, RequestID())
 	rr := httptest.NewRecorder()
-	req := makeReq(http.MethodGet, "/rid2")
+	req := makeReq("/rid2")
 	req.Header.Set("X-Request-Id", given)
 	chain.ServeHTTP(rr, req)
 
@@ -164,7 +164,7 @@ func TestAuthBearer_PopulatesContext_WhenBearerPresent(t *testing.T) {
 
 	chain := Chain(h, AuthBearer())
 	rr := httptest.NewRecorder()
-	req := makeReq(http.MethodGet, "/auth")
+	req := makeReq("/auth")
 	req.Header.Set("Authorization", "Bearer test-token-123")
 	chain.ServeHTTP(rr, req)
 
@@ -182,13 +182,13 @@ func TestAuthBearer_IgnoresInvalidHeader(t *testing.T) {
 
 	// 1) Пусто.
 	rr := httptest.NewRecorder()
-	req := makeReq(http.MethodGet, "/auth1")
+	req := makeReq("/auth1")
 	chain.ServeHTTP(rr, req)
 	require.False(t, found)
 
 	// 2) Без префикса Bearer.
 	rr = httptest.NewRecorder()
-	req = makeReq(http.MethodGet, "/auth2")
+	req = makeReq("/auth2")
 	req.Header.Set("Authorization", "Basic aaa")
 	chain.ServeHTTP(rr, req)
 	require.False(t, found)
@@ -209,7 +209,7 @@ func TestTimeout_SetsDeadline_WhenAbsent(t *testing.T) {
 
 	chain := Chain(h, Timeout(50*time.Millisecond))
 	rr := httptest.NewRecorder()
-	req := makeReq(http.MethodGet, "/timeout")
+	req := makeReq("/timeout")
 	chain.ServeHTTP(rr, req)
 
 	require.True(t, hasDeadline)
@@ -227,7 +227,7 @@ func TestTimeout_DoesNotOverrideExistingDeadline(t *testing.T) {
 
 	parent, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
-	req := makeReq(http.MethodGet, "/timeout2").WithContext(parent)
+	req := makeReq("/timeout2").WithContext(parent)
 
 	chain := Chain(h, Timeout(1*time.Second)) // больше, чем у родителя
 	rr := httptest.NewRecorder()
@@ -244,7 +244,7 @@ func TestRecover_ConvertsPanicTo500(t *testing.T) {
 
 	chain := Chain(panicHandler, Recover())
 	rr := httptest.NewRecorder()
-	req := makeReq(http.MethodGet, "/panic")
+	req := makeReq("/panic")
 
 	chain.ServeHTTP(rr, req)
 
@@ -272,7 +272,7 @@ func TestLogging_WritesRecord_WithStatusDurBytesAndRequestID(t *testing.T) {
 	handler := Chain(final, RequestID(), Logging(logger))
 
 	rr := httptest.NewRecorder()
-	req := makeReq(http.MethodGet, "/log")
+	req := makeReq("/log")
 	req.Header.Set("X-Request-Id", rid)
 
 	handler.ServeHTTP(rr, req)

@@ -16,7 +16,6 @@ help:
 	@echo "Основные цели:"
 	@echo "  lint                  - запустить golangci-lint"
 	@echo "  test                  - юнит-тесты"
-	@echo "  test-integration      - интеграционные тесты"
 	@echo "  build                 - собрать бинарник в $(BIN)"
 	@echo "  run-local             - запустить локально с $(CONFIG_LOCAL)"
 	@echo "  run-dev               - запустить локально с $(CONFIG_DEV)"
@@ -35,10 +34,6 @@ lint:
 .PHONY: test
 test:
 	go test -race -count=1 ./...
-
-.PHONY: test-integration
-test-integration:
-	GO_TEST_INTEGRATION=1 go test -v -race -count=1 ./internal/storage/postgres
 
 # Сборка/запуск без Docker 
 .PHONY: build

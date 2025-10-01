@@ -43,7 +43,7 @@ func main() {
 	cl, err := clients.New(rootCtx, *cfg, log)
 	if err != nil {
 		log.Error("clients_init_failed", slog.String("err", err.Error()))
-		os.Exit(1)
+		return
 	}
 
 	defer func() {
@@ -55,22 +55,22 @@ func main() {
 	log.Info("clients_initialized")
 
 	opts := gwhttp.Options{
-		Logger:   log,
+		Logger:   slog.Default(),
 		Timeout:  cfg.Timeouts.Service,
-		BasePath: "",
+		BasePath: "/api",
 	}
 
 	apiHandler := gwhttp.NewRouter(cl, opts)
 
 	var ready int32 // 0 — not ready; 1 — ready
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/livez", func(w http.ResponseWriter, _ *http.Request) {
+	metricsMux := http.NewServeMux()
+	metricsMux.HandleFunc("/livez", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
 
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+	metricsMux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		if atomic.LoadInt32(&ready) == 1 {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("ok"))
@@ -80,31 +80,54 @@ func main() {
 		http.Error(w, "not ready", http.StatusServiceUnavailable)
 	})
 
-	mux.Handle("/metrics", promhttp.Handler())
+	metricsMux.Handle("/metrics", promhttp.Handler())
 
-	mux.Handle("", apiHandler)
-
-	httpAddr := cfg.HTTP.Addr()
-	httpSrv := &http.Server{
-		Addr:              httpAddr,
-		Handler:           mux,
+	metricsAddr := cfg.Metrics.Addr()
+	metricsSrv := &http.Server{
+		Addr:              metricsAddr,
+		Handler:           metricsMux,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	ln, err := net.Listen("tcp", httpAddr)
-	if err != nil {
-		log.Error("http_listen_failed", slog.String("addr", httpAddr), slog.String("err", err.Error()))
-		os.Exit(1)
+	apiMux := http.NewServeMux()
+	apiMux.Handle("/", apiHandler)
+
+	apiAddr := cfg.HTTP.Addr()
+	apiSrv := &http.Server{
+		Addr:              apiAddr,
+		Handler:           apiMux,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	log.Info("http_listen_start", slog.String("addr", httpAddr))
+	metricsLn, err := net.Listen("tcp", metricsAddr)
+	if err != nil {
+		log.Error("metrics_listen_failed", slog.String("addr", metricsAddr), slog.String("err", err.Error()))
+		return
+	}
+	log.Info("metrics_listen_start", slog.String("addr", metricsAddr))
 
-	serveErrCh := make(chan error, 1)
+	apiLn, err := net.Listen("tcp", apiAddr)
+	if err != nil {
+		log.Error("http_listen_failed", slog.String("addr", apiAddr), slog.String("err", err.Error()))
+		return
+	}
+	log.Info("http_listen_start", slog.String("addr", apiAddr))
+
+	apiErrCh := make(chan error, 1)
+	metricsErrCh := make(chan error, 1)
+
 	go func() {
-		if err := httpSrv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serveErrCh <- err
+		if err := metricsSrv.Serve(metricsLn); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			metricsErrCh <- err
 		}
-		close(serveErrCh)
+		close(metricsErrCh)
+	}()
+
+	go func() {
+		if err := apiSrv.Serve(apiLn); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			apiErrCh <- err
+		}
+		close(apiErrCh)
 	}()
 
 	atomic.StoreInt32(&ready, 1)
@@ -113,7 +136,11 @@ func main() {
 	select {
 	case <-rootCtx.Done():
 		log.Info("shutdown_requested")
-	case err := <-serveErrCh:
+	case err := <-metricsErrCh:
+		if err != nil {
+			log.Error("metrics_serve_failed", slog.String("err", err.Error()))
+		}
+	case err := <-apiErrCh:
 		if err != nil {
 			log.Error("http_serve_failed", slog.String("err", err.Error()))
 		}
@@ -124,7 +151,13 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+	if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+		log.Warn("metrics_shutdown_incomplete", slog.String("err", err.Error()))
+	} else {
+		log.Info("metrics_stopped")
+	}
+
+	if err := apiSrv.Shutdown(shutdownCtx); err != nil {
 		log.Warn("http_shutdown_incomplete", slog.String("err", err.Error()))
 	} else {
 		log.Info("http_stopped")
