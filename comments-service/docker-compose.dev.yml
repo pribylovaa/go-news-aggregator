@@ -16,7 +16,7 @@ services:
     volumes:
       - data:/var/lib/mongo/data
     healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep 1 || exit 1"]
+      test: ["CMD-SHELL", "mongosh 'mongodb://administrator:administrator@comments-db:27017/comments?authSource=admin' --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep 1 || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 30

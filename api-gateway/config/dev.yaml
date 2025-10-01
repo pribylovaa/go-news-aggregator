@@ -1,0 +1,18 @@
+env: local
+
+http:
+  host: 0.0.0.0
+  port: "50090"
+
+metrics:
+  host: 0.0.0.0
+  port: "50085"
+
+timeouts:
+  service: 15s
+
+grpc:
+  auth_addr: "0.0.0.0:50051"
+  news_addr: "0.0.0.0:50052"
+  users_addr: "0.0.0.0:50053"
+  comments_addr: "0.0.0.0:50054"

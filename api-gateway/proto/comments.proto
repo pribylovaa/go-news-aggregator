@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package comments.v1;
+
+option go_package = "github.com/pribylovaa/go-news-aggregator/proto/comments/v1;commentsv1";
+
+// Базовая модель комментария (плоская; дерево — через parent_id).
+message Comment {
+  string id = 1;                       // Mongo ObjectID 
+  string news_id = 2;                  
+  string parent_id = 3;                // "" - корень
+  string user_id = 4;                  // из users-service
+  string username = 5;                 // из users-service
+  string content = 6;                  // текст (маскируется при is_deleted=true)
+  int32 level = 7;                     // глубина (0 для корня), вычисляется на записи
+  int32 replies_count = 8;             // счётчик прямых детей (для UI)
+  bool is_deleted = 9;                 // мягкое удаление
+  int64 created_at = 10;                
+  int64 updated_at = 11;
+  int64 expires_at = 12;
+}
+
+service CommentsService {
+  rpc CreateComment (CreateCommentRequest) returns (CreateCommentResponse);
+  rpc DeleteComment (DeleteCommentRequest) returns (DeleteCommentResponse);
+  rpc CommentByID (CommentByIDRequest) returns (CommentByIDResponse);
+  // Список комментариев по новости (корневых), сначала новые.
+  rpc ListByNews (ListByNewsRequest) returns (ListByNewsResponse);
+  // Подзагрузка ответов для ветки (дети одного parent_id), сначала старые.
+  rpc ListReplies (ListRepliesRequest) returns (ListRepliesResponse);
+}
+
+message CreateCommentRequest {
+  string news_id = 1;                 
+  string parent_id = 2;                // опциональный; если задан — это reply
+  string user_id = 3;
+  string username = 4;
+  string content = 5;                  
+}
+
+message CreateCommentResponse {
+  Comment comment = 1;
+}
+
+message DeleteCommentRequest {
+  string id = 1;
+}
+
+message DeleteCommentResponse {}
+
+message CommentByIDRequest {
+  string id = 1;
+}
+
+message CommentByIDResponse {
+  Comment comment = 1;
+}
+ 
+message ListByNewsRequest {
+  string news_id = 1;
+  int32 page_size = 2;                
+  string page_token = 3;               
+}
+
+message ListByNewsResponse {
+  repeated Comment comments = 1;
+  string next_page_token = 2;
+}
+
+message ListRepliesRequest {
+  string parent_id = 1;
+  int32 page_size = 2;                 
+  string page_token = 3;               
+}
+
+message ListRepliesResponse {
+  repeated Comment comments = 1;
+  string next_page_token = 2;
+}
