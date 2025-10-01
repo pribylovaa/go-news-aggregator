@@ -47,10 +47,10 @@ func (m MetricsConfig) Addr() string { return net.JoinHostPort(m.Host, m.Port) }
 
 // GRPCConfig — адреса внутренних gRPC-сервисов.
 type GRPCConfig struct {
-	AuthAddr     string `yaml:"auth_addr"     env:"GRPC_AUTH_ADDR"     env-default:"0.0.0.0:50081"`
-	NewsAddr     string `yaml:"news_addr"     env:"GRPC_NEWS_ADDR"     env-default:"0.0.0.0:50082"`
-	UsersAddr    string `yaml:"users_addr"    env:"GRPC_USERS_ADDR"    env-default:"0.0.0.0:50083"`
-	CommentsAddr string `yaml:"comments_addr" env:"GRPC_COMMENTS_ADDR" env-default:"0.0.0.0:50084"`
+	AuthAddr     string `yaml:"auth_addr"     env:"GRPC_AUTH_ADDR"     env-default:"0.0.0.0:50051"`
+	NewsAddr     string `yaml:"news_addr"     env:"GRPC_NEWS_ADDR"     env-default:"0.0.0.0:50052"`
+	UsersAddr    string `yaml:"users_addr"    env:"GRPC_USERS_ADDR"    env-default:"0.0.0.0:50053"`
+	CommentsAddr string `yaml:"comments_addr" env:"GRPC_COMMENTS_ADDR" env-default:"0.0.0.0:50054"`
 }
 
 // MustLoad — паника при ошибке загрузки.
