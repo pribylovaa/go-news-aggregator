@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-receiver
+  namespace: monitoring
+  labels:
+    app: alert-receiver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alert-receiver
+  template:
+    metadata:
+      labels:
+        app: alert-receiver
+    spec:
+      containers:
+        - name: alert-receiver
+          image: docker.io/pribylova/alertmanager-server:latest  
+          imagePullPolicy: Never                                
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: OUTPUT_FILE
+              value: /data/alerts.log
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-receiver
+  namespace: monitoring
+spec:
+  selector:
+    app: alert-receiver
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+

@@ -1,0 +1,210 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: users
+  labels:
+    env: dev
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: users-db-secret
+  namespace: users
+type: Opaque
+stringData:
+  POSTGRES: "postgres://administrator:administrator@192.168.64.6:5436/profiles?sslmode=disable"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: users-s3-secret
+  namespace: users
+type: Opaque
+stringData:
+  S3_ROOT_USER: "administrator"
+  S3_ROOT_PASSWORD: "administrator"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: users-service-config
+  namespace: users
+data:
+  config.yaml: |
+    env: "dev"
+
+    grpc:
+      host: "0.0.0.0"
+      port: "50053"
+
+    http:
+      host: "0.0.0.0"
+      port: "50083"
+
+    s3:
+      endpoint: "http://192.168.64.6:9000"
+      bucket: "avatars"
+      presign_ttl: "10m"
+      public_base_url: "http://192.168.64.6:9000"
+
+    avatar:
+      max_size_bytes: 5242880
+      allowed_content_types: ["image/jpeg", "image/png", "image/webp"]
+
+    timeouts:
+      service: "5s"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-service
+  namespace: users
+  labels:
+    app: users-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: users-service
+  template:
+    metadata:
+      labels:
+        app: users-service
+    spec:
+      containers:
+        - name: users-service
+          image: ghcr.io/pribylovaa/go-news-aggregator/users-service:sha-39d258b@sha256:c4cc190a509356ccf46838235e0a73f029263f31966af5b47d6c9c4af58445bb
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 50083
+            - name: grpc
+              containerPort: 50053
+          env:
+            - name: CONFIG_PATH
+              value: /config/config.yaml
+            - name: POSTGRES
+              valueFrom:
+                secretKeyRef:
+                  name: users-db-secret
+                  key: POSTGRES
+            - name: S3_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: users-s3-secret
+                  key: S3_ROOT_USER
+            - name: S3_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: users-s3-secret
+                  key: S3_ROOT_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          volumeMounts:
+            - name: users-config
+              mountPath: /config
+              readOnly: true
+      volumes:
+        - name: users-config
+          configMap:
+            name: users-service-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: users-service
+  namespace: users
+  labels:
+    app: users-service
+spec:
+  type: ClusterIP
+  selector:
+    app: users-service
+  ports:
+    - name: http
+      port: 50083
+      targetPort: http
+      protocol: TCP
+    - name: grpc
+      port: 50053
+      targetPort: grpc
+      protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: users-service
+  namespace: users
+  labels:
+    app: users-service
+    release: mon
+spec:
+  selector:
+    matchLabels:
+      app: users-service
+  namespaceSelector:
+    matchNames:
+      - users
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 5s
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: users-service-ingress
+  namespace: users
+spec:
+  podSelector:
+    matchLabels:
+      app: users-service
+  policyTypes:
+    - Ingress
+  ingress:
+    # 1) api-gateway (ns: api-gateway) -> gRPC/HTTP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: "api-gateway"
+          podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - port: 50053
+          protocol: TCP
+        - port: 50083
+          protocol: TCP
+    # 2) Prometheus (kube-prometheus-stack) -> HTTP /metrics
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: "monitoring"
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 50083
+          protocol: TCP

@@ -1,0 +1,188 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: comments
+  labels:
+    env: dev
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: comments-db-secret
+  namespace: comments
+type: Opaque
+stringData:
+  DATABASE_URL: "mongodb://administrator:administrator@192.168.64.6:27017/comments?authSource=admin"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: comments-service-config
+  namespace: comments
+data:
+  config.yaml: |
+    env: "dev"
+
+    grpc:
+      host: "0.0.0.0"
+      port: "50054"
+
+    http:
+      host: "0.0.0.0"
+      port: "50084"
+
+    limits:
+      default: 20
+      max: 300
+      max_depth: 6
+
+    ttl:
+      thread: "168h"
+
+    timeouts:
+      service: 5s
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comments-service
+  namespace: comments
+  labels:
+    app: comments-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: comments-service
+  template:
+    metadata:
+      labels:
+        app: comments-service
+    spec:
+      containers:
+        - name: comments-service
+          image: ghcr.io/pribylovaa/go-news-aggregator/comments-service:sha-6ff1106@sha256:3078b3aeb1a07000d6a59ed06f12647c68aab7b3d5fd3aad6e730584008015a9
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 50084
+            - name: grpc
+              containerPort: 50054
+          env:
+            - name: CONFIG_PATH
+              value: /config/config.yaml
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: comments-db-secret
+                  key: DATABASE_URL
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          volumeMounts:
+            - name: comments-config
+              mountPath: /config
+              readOnly: true
+      volumes:
+        - name: comments-config
+          configMap:
+            name: comments-service-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: comments-service
+  namespace: comments
+  labels:
+    app: comments-service
+spec:
+  type: ClusterIP
+  selector:
+    app: comments-service
+  ports:
+    - name: http
+      port: 50084
+      targetPort: http
+      protocol: TCP
+    - name: grpc
+      port: 50054
+      targetPort: grpc
+      protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: comments-service
+  namespace: comments
+  labels:
+    app: comments-service
+    release: mon
+spec:
+  selector:
+    matchLabels:
+      app: comments-service
+  namespaceSelector:
+    matchNames:
+      - comments
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 5s
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: comments-service-ingress
+  namespace: comments
+spec:
+  podSelector:
+    matchLabels:
+      app: comments-service
+  policyTypes:
+    - Ingress
+  ingress:
+    # 1) api-gateway (ns: api-gateway) -> gRPC/HTTP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: "api-gateway"
+          podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - port: 50054
+          protocol: TCP
+        - port: 50084
+          protocol: TCP
+    # 2) Prometheus (kube-prometheus-stack) -> HTTP /metrics
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: "monitoring"
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 50084
+          protocol: TCP
