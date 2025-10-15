@@ -1,0 +1,193 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: news
+  labels:
+    env: dev
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: news-db-secret
+  namespace: news
+type: Opaque
+stringData:
+  DATABASE_URL: "postgres://administrator:administrator@192.168.64.6:5435/news?sslmode=disable"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: news-service-config
+  namespace: news
+data:
+  config.yaml: |
+    env: "dev"
+
+    grpc:
+      host: "0.0.0.0"
+      port: "50052"
+
+    http:
+      host: "0.0.0.0"
+      port: "50082"
+
+    fetcher:
+      sources:
+        - "https://www.marieclaire.ru/rss-feeds/rss.xml"
+        - "https://www.woman.ru/rss-feeds/rss.xml"
+        - "https://www.thevoicemag.ru/rss/utf8/public-feed-all-news.xml"
+        - "https://hellomagrussia.ru/rss.xml"
+        - "https://womontrue.ru/feed/"
+      interval: "10m"
+
+    limits:
+      default: 12
+      max: 300
+
+    timeouts:
+      service: 5s
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: news-service
+  namespace: news
+  labels:
+    app: news-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: news-service
+  template:
+    metadata:
+      labels:
+        app: news-service
+    spec:
+      containers:
+        - name: news-service
+          image: ghcr.io/pribylovaa/go-news-aggregator/news-service:sha-3624a93@sha256:eba9906f61ea30f0e17b05f1f2f9790380ec77b4c9095e7bce16c9278568d399
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 50082
+            - name: grpc
+              containerPort: 50052
+          env:
+            - name: CONFIG_PATH
+              value: /config/config.yaml
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: news-db-secret
+                  key: DATABASE_URL
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          volumeMounts:
+            - name: news-config
+              mountPath: /config
+              readOnly: true
+      volumes:
+        - name: news-config
+          configMap:
+            name: news-service-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: news-service
+  namespace: news
+  labels:
+    app: news-service
+spec:
+  type: ClusterIP
+  selector:
+    app: news-service
+  ports:
+    - name: http
+      port: 50082
+      targetPort: http
+      protocol: TCP
+    - name: grpc
+      port: 50052
+      targetPort: grpc
+      protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: news-service
+  namespace: news
+  labels:
+    app: news-service
+    release: mon
+spec:
+  selector:
+    matchLabels:
+      app: news-service
+  namespaceSelector:
+    matchNames:
+      - news
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 5s
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: news-service-ingress
+  namespace: news
+spec:
+  podSelector:
+    matchLabels:
+      app: news-service
+  policyTypes:
+    - Ingress
+  ingress:
+    # 1) api-gateway (ns: api-gateway) -> gRPC/HTTP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: "api-gateway"
+          podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - port: 50052
+          protocol: TCP
+        - port: 50082
+          protocol: TCP
+    # 2) Prometheus (kube-prometheus-stack) -> HTTP /metrics
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: "monitoring"
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 50082
+          protocol: TCP

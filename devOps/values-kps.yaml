@@ -1,0 +1,193 @@
+defaultRules:
+  create: true
+  rules:
+    kubeScheduler: false
+    kubeControllerManager: false
+    etcd: false
+
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+kubelet:
+  enabled: true
+  serviceMonitor:
+    cAdvisor: true
+    probes: true
+    resource: true
+
+prometheusOperator:
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: 200m, memory: 256Mi }
+
+nodeExporter:
+  enabled: true
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits:   { cpu: 100m, memory: 128Mi }
+
+kubeStateMetrics:
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: 200m, memory: 256Mi }
+
+prometheus:
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts: [ "prom.192.168.64.6.nip.io" ]
+    paths: [ "/" ]
+    pathType: Prefix
+    servicePort: 9090
+  prometheusSpec:
+    retention: 6h
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    resources:
+      requests: { cpu: 200m, memory: 512Mi }
+      limits:   { cpu: 500m, memory: 1Gi }
+    storageSpec:
+      emptyDir: {}
+    externalLabels:
+      cluster: local-k3s
+    additionalScrapeConfigs:
+      # cAdvisor на хосте (через docker, наружу проброшен на 8081)
+      - job_name: cadvisor-docker
+        scrape_interval: 30s
+        static_configs:
+          - targets: ["192.168.64.6:8081"]
+            labels:
+              instance: cadvisor-docker
+
+      # Postgres Exporter (auth)
+      - job_name: postgresql-auth
+        scrape_interval: 30s
+        static_configs:
+          - targets: ["192.168.64.6:9187"]
+            labels:
+              instance: auth-postgres
+
+      # Postgres Exporter (news)
+      - job_name: postgresql-news
+        scrape_interval: 30s
+        static_configs:
+          - targets: ["192.168.64.6:9188"]
+            labels:
+              instance: news-postgres
+
+      # Postgres Exporter (users)
+      - job_name: postgresql-users
+        scrape_interval: 30s
+        static_configs:
+          - targets: ["192.168.64.6:9189"]
+            labels:
+              instance: users-postgres
+
+      # MongoDB Exporter (comments)
+      - job_name: mongodb-comments
+        scrape_interval: 30s
+        static_configs:
+          - targets: ["192.168.64.6:9216"]
+            labels:
+              instance: comments-mongodb
+
+      # Redis Exporter (auth)
+      - job_name: redis-auth
+        scrape_interval: 30s
+        static_configs:
+          - targets: ["192.168.64.6:9121"]
+            labels:
+              instance: auth-redis
+
+      # MinIO метрики (без экспортера) — путь /minio/v2/metrics/cluster
+      - job_name: minio
+        scrape_interval: 30s
+        metrics_path: /minio/v2/metrics/cluster
+        static_configs:
+          - targets: ["192.168.64.6:9000"]
+            labels:
+              instance: minio
+
+alertmanager:
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts: [ "alert.192.168.64.6.nip.io" ]
+    paths: [ "/" ]
+    pathType: Prefix
+    servicePort: 9093
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 50m, memory: 64Mi }
+      limits:   { cpu: 100m, memory: 128Mi }
+  config:
+    route:
+      receiver: "webhook"
+      group_by: ["alertname","namespace","job"]
+      group_wait: 15s
+      group_interval: 1m
+      repeat_interval: 3h
+    receivers:
+      - name: "webhook"
+        webhook_configs:
+          - url: "http://alert-receiver.monitoring.svc:8080/webhook"
+            max_alerts: 0
+            send_resolved: true
+
+grafana:
+  adminPassword: "admin"
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts: [ "grafana.192.168.64.6.nip.io" ]
+    path: /
+    pathType: Prefix
+    servicePort: 80
+  defaultDashboardsEnabled: true
+  sidecar:
+    dashboards: { enabled: true }
+    datasources: { enabled: true }
+  persistence:
+    enabled: false
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits:   { cpu: 300m, memory: 320Mi }
+
+# --- Дополнительные правила для gRPC ошибок по каждому сервису ---
+prometheusRule:
+  additionalPrometheusRulesMap:
+    grpc-error-rules:
+      groups:
+        - name: app-grpc-rules
+          rules:
+            - record: app:grpc_error_rate5m
+              expr: |
+                sum by (namespace, service) (
+                  rate(grpc_server_handled_total{grpc_code!="OK"}[5m])
+                )
+                /
+                sum by (namespace, service) (
+                  rate(grpc_server_handled_total[5m])
+                )
+            - alert: HighGrpcErrorRate
+              expr: app:grpc_error_rate5m > 0.05
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "High gRPC error rate (>5%)"
+                description: "Service {{ $labels.namespace }}/{{ $labels.service }} has error rate {{ printf \"%.2f\" $value }} (>5%) over 5m."
+            - alert: VeryHighGrpcErrorRate
+              expr: app:grpc_error_rate5m > 0.20
+              for: 10m
+              labels:
+                severity: critical
+              annotations:
+                summary: "Very high gRPC error rate (>20%)"
+                description: "Service {{ $labels.namespace }}/{{ $labels.service }} has error rate {{ printf \"%.2f\" $value }} (>20%) over 10m."

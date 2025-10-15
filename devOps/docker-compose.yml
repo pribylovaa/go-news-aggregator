@@ -1,0 +1,245 @@
+version: "3.9"
+
+services:
+  # === PostgreSQL для auth ===
+  auth-db:
+    image: postgres:15-alpine
+    container_name: auth-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: administrator
+      POSTGRES_PASSWORD: administrator
+      POSTGRES_DB: auth
+    ports:
+      - "5434:5432"
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U administrator -d auth"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # === PostgreSQL для news ===
+  news-db:
+    image: postgres:15-alpine
+    container_name: news-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: administrator
+      POSTGRES_PASSWORD: administrator
+      POSTGRES_DB: news
+    ports:
+      - "5435:5432"
+    volumes:
+      - news_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U administrator -d news"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # === PostgreSQL для users ===
+  users-db:
+    image: postgres:15-alpine
+    container_name: users-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: administrator
+      POSTGRES_PASSWORD: administrator
+      POSTGRES_DB: profiles
+    ports:
+      - "5436:5432"
+    volumes:
+      - users_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U administrator -d profiles"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # === MongoDB для comments ===
+  comments-db:
+    image: mongo:6.0
+    container_name: comments-db
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: administrator
+      MONGO_INITDB_ROOT_PASSWORD: administrator
+    ports:
+      - "27017:27017"
+    volumes:
+      - comments_db_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 })"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # === Redis для auth ===
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "PING"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # === MinIO для users (S3 API + консоль) ===
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: administrator
+      MINIO_ROOT_PASSWORD: administrator
+    command: ["server", "/data", "--console-address", ":9001"]
+    ports:
+      - "9000:9000"   # S3 API (метрики тоже отсюда)
+      - "9001:9001"   # Web Console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # === Инициализация bucket "avatars" ===
+  minio-init:
+    image: minio/mc:latest   
+    container_name: minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      mc alias set local http://minio:9000 administrator administrator &&
+      mc mb -p local/avatars || true &&
+      mc policy set public local/avatars || true
+    restart: "no"
+
+  # === cAdvisor: метрики контейнеров/хоста на :8081/metrics ===
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: cadvisor
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "8081:8080"   # внутри 8080 → снаружи 8081
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/metrics"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # === Postgres Exporter для auth (на :9187) ===
+  auth-postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: auth-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://administrator:administrator@auth-db:5432/auth?sslmode=disable"
+    ports:
+      - "9187:9187"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9187/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # === Postgres Exporter для news (на :9188) ===
+  news-postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: news-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://administrator:administrator@news-db:5432/news?sslmode=disable"
+    ports:
+      - "9188:9188"
+    depends_on:
+      news-db:
+        condition: service_healthy
+    command: ["--web.listen-address=0.0.0.0:9188"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9188/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # === Postgres Exporter для users (на :9189) ===
+  users-postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: users-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://administrator:administrator@users-db:5432/profiles?sslmode=disable"
+    ports:
+      - "9189:9189"
+    depends_on:
+      users-db:
+        condition: service_healthy
+    command: ["--web.listen-address=0.0.0.0:9189"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9189/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # === MongoDB Exporter для comments (на :9216) ===
+  mongodb-exporter:
+    image: percona/mongodb_exporter:0.40.0
+    container_name: mongodb-exporter
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: "mongodb://administrator:administrator@comments-db:27017/admin"
+    ports:
+      - "9216:9216"
+    depends_on:
+      comments-db:
+        condition: service_healthy
+    command: ["--web.listen-address=:9216"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9216/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # === Redis Exporter (на :9121) ===
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.61.0
+    container_name: redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+    ports:
+      - "9121:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9121/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  auth_db_data:
+  news_db_data:
+  users_db_data:
+  comments_db_data:
+  minio_data:
