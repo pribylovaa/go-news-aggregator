@@ -18,6 +18,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/cache"
 	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/models"
 	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage"
 	"github.com/pribylovaa/go-news-aggregator/pkg/log"
@@ -163,6 +164,18 @@ func (s *Service) generateRefreshToken(ctx context.Context, userID uuid.UUID) (s
 			return "", fmt.Errorf("%s: %w", op, err)
 		}
 
+		// best-effort кэширование (не влияем на основной флоу при ошибке кэша).
+		if s.rcache != nil {
+			ttl := time.Until(token.ExpiresAt)
+			if ttl > 0 {
+				_ = s.rcache.Set(ctx, hash, &cache.RefreshEntry{
+					UserID:    userID,
+					Revoked:   false,
+					ExpiresAt: token.ExpiresAt,
+				}, ttl)
+			}
+		}
+
 		return plain, nil
 	}
 
@@ -185,6 +198,29 @@ func (s *Service) validateRefreshToken(ctx context.Context, plain string) (*mode
 
 	hashBytes := sha256.Sum256([]byte(plain))
 	hash := base64.RawURLEncoding.EncodeToString(hashBytes[:])
+
+	// Быстрая проверка в Redis.
+	if s.rcache != nil {
+		if e, found, err := s.rcache.Get(ctx, hash); err == nil && found {
+			if e.Revoked {
+				return nil, fmt.Errorf("%s: %w", op, ErrTokenRevoked)
+			}
+
+			now := time.Now().UTC()
+			if !e.ExpiresAt.After(now) {
+				return nil, fmt.Errorf("%s: %w", op, ErrTokenExpired)
+			}
+
+			// Кэш-хит: собираем совместимую модель для дальнейшей логики
+			return &models.RefreshToken{
+				RefreshTokenHash: hash,
+				UserID:           e.UserID,
+				CreatedAt:        time.Time{}, // в кэше не храним — ок
+				ExpiresAt:        e.ExpiresAt,
+				Revoked:          false,
+			}, nil
+		}
+	}
 
 	token, err := s.storage.RefreshTokenByHash(ctx, hash)
 	if err != nil {
@@ -217,6 +253,18 @@ func (s *Service) validateRefreshToken(ctx context.Context, plain string) (*mode
 			slog.String("user_id", token.UserID.String()),
 		)
 		return nil, fmt.Errorf("%s: %w", op, ErrTokenExpired)
+	}
+
+	// Прогрев кэша на успешной валидации.
+	if s.rcache != nil {
+		ttl := time.Until(token.ExpiresAt)
+		if ttl > 0 {
+			_ = s.rcache.Set(ctx, hash, &cache.RefreshEntry{
+				UserID:    token.UserID,
+				Revoked:   token.Revoked,
+				ExpiresAt: token.ExpiresAt,
+			}, ttl)
+		}
 	}
 
 	return token, nil

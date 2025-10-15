@@ -1,0 +1,210 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: auth
+  labels:
+    env: dev
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auth-db-secret
+  namespace: auth
+type: Opaque
+stringData:
+  DATABASE_URL: "postgres://administrator:administrator@192.168.64.6:5434/auth?sslmode=disable"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auth-redis-secret
+  namespace: auth
+type: Opaque
+stringData:
+  REDIS_URL: "redis://administrator:administrator@192.168.64.6:6379/0"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auth-jwt-secret
+  namespace: auth
+type: Opaque
+stringData:
+  JWT_SECRET: "dev-secret-key"
+--- 
+# Конфиг без секретных значений: ENV перекроет YAML на старте
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-config-file
+  namespace: auth
+data:
+  config.yaml: |
+    env: "dev"
+
+    grpc:
+      host: "0.0.0.0"
+      port: "50051"
+
+    http:
+      host: "0.0.0.0"
+      port: "50081"
+
+    auth:
+      access_token_ttl: 15m
+      refresh_token_ttl: 720h
+      issuer: auth-service
+      audience: ["api-gateway"]
+
+    timeouts:
+      service: 5s
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: auth
+  labels:
+    app: auth-service
+spec:
+  selector:
+    app: auth-service
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: grpc
+    - name: http
+      port: 50081
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: auth
+  labels:
+    app: auth-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+        - name: auth
+          image: ghcr.io/pribylovaa/go-news-aggregator/auth-service:sha-ea7f53f@sha256:42bda3f5152c2206d2a8b8e3da9924161ee68204a1983730ff10f00b8cf7f4ad
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50051
+            - name: http
+              containerPort: 50081
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: auth-db-secret
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: auth-redis-secret
+                  key: REDIS_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: auth-jwt-secret
+                  key: JWT_SECRET
+          volumeMounts:
+            - name: config-file
+              mountPath: /etc/auth-service/config.yaml
+              subPath: config.yaml
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: config-file
+          configMap:
+            name: auth-config-file
+            items:
+              - key: config.yaml
+                path: config.yaml
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: auth-service
+  namespace: monitoring
+  labels:
+    release: mon
+spec:
+  namespaceSelector:
+    matchNames: ["auth"]
+  selector:
+    matchLabels:
+      app: auth-service
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 5s
+---
+# NetworkPolicy: доступ только с api-gateway и Prometheus
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: auth-service-ingress
+  namespace: auth
+spec:
+  podSelector:
+    matchLabels:
+      app: auth-service
+  policyTypes:
+    - Ingress
+  ingress:
+    # 1) api-gateway -> gRPC/HTTP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: api-gateway
+          podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - port: 50051
+          protocol: TCP
+        - port: 50081
+          protocol: TCP
+    # 2) Prometheus (kube-prometheus-stack) -> HTTP /metrics
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 50081
+          protocol: TCP
+

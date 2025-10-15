@@ -13,6 +13,7 @@ package service
 import (
 	"errors"
 
+	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/cache"
 	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/config"
 	"github.com/pribylovaa/go-news-aggregator/auth-service/internal/storage"
 )
@@ -60,6 +61,7 @@ var (
 type Service struct {
 	storage storage.Storage
 	cfg     config.AuthConfig
+	rcache  cache.RefreshCache // может быть nil, если кэш не сконфигурирован
 }
 
 // New создаёт новый экземпляр Service.
@@ -68,4 +70,9 @@ func New(storage storage.Storage, cfg config.AuthConfig) *Service {
 		storage: storage,
 		cfg:     cfg,
 	}
+}
+
+// SetRefreshCache устанавливает кэш refresh-токенов (опционально).
+func (s *Service) SetRefreshCache(c cache.RefreshCache) {
+	s.rcache = c
 }

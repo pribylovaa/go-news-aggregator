@@ -310,6 +310,10 @@ func (s *Service) RevokeToken(ctx context.Context, refreshToken string) error {
 		return fmt.Errorf("%s: %w", op, ErrTokenRevoked)
 	}
 
+	if s.rcache != nil {
+		_ = s.rcache.MarkRevoked(ctx, hash)
+	}
+
 	lg.Info("revoke_ok",
 		slog.String("op", op),
 	)
@@ -459,6 +463,10 @@ func (s *Service) issueTokenPair(ctx context.Context, user *models.User, oldRefr
 				slog.String("user_id", user.ID.String()),
 			)
 			return nil, uuid.Nil, fmt.Errorf("%s: %w", op, ErrTokenRevoked)
+		}
+
+		if s.rcache != nil && revoked {
+			_ = s.rcache.MarkRevoked(ctx, oldRefreshHash)
 		}
 	}
 

@@ -49,6 +49,8 @@ auth:
   audience: ["api-gateway", "web"]
 db:
   db_url: "postgres://user:pass@localhost:5432/db?sslmode=disable"
+redis:
+  redis_url: "redis://administrator:administrator@redis-db:6379/auth"
 timeouts:
   service: "3s"
 `
@@ -59,6 +61,8 @@ auth:
   jwt_secret: "min-secret"
 db:
   db_url: "postgres://localhost/min"
+redis:
+  redis_url: "redis://administrator:administrator@redis-db:6379/auth"
 `
 
 // Некорректный YAML — для проверки ошибок парсинга.
@@ -160,6 +164,7 @@ func TestLoad_EnvOnly_OK(t *testing.T) {
 	// задаём все необходимые ENV-переменные.
 	t.Setenv("JWT_SECRET", "env-secret")
 	t.Setenv("DATABASE_URL", "postgres://env/db")
+	t.Setenv("REDIS_URL", "postgres://env/db")
 	t.Setenv("ENV", "dev")
 	t.Setenv("HOST", "0.0.0.0")
 	t.Setenv("PORT", "12345")
@@ -192,6 +197,7 @@ func TestLoad_Priority_ExplicitWinsOverEnvAndLocal(t *testing.T) {
 	explicit := writeFile(t, dir, "explicit.yaml", `
 env: "prod"
 db: { db_url: "postgres://explicit/db" }
+redis: { redis_url: "redis://local/db" }
 auth: { jwt_secret: "explicit-secret" }
 `)
 	badEnvPath := writeFile(t, dir, "env_bad.yaml", brokenYAML)
@@ -199,6 +205,7 @@ auth: { jwt_secret: "explicit-secret" }
 	writeFile(t, dir, "local.yaml", `
 env: "local"
 db: { db_url: "postgres://local/db" }
+redis: { redis_url: "redis://local/db" }
 auth: { jwt_secret: "local-secret" }
 `)
 	chdir(t, dir)
@@ -222,11 +229,13 @@ func TestLoad_Priority_ENVWinsOverLocal(t *testing.T) {
 	writeFile(t, dir, "local.yaml", `
 env: "local"
 db: { db_url: "postgres://local/db" }
+redis: { redis_url: "redis://local/db" }
 auth: { jwt_secret: "local-secret" }
 `)
 	envPath := writeFile(t, dir, "from_env.yaml", `
 env: "dev"
 db: { db_url: "postgres://env/db" }
+redis: { redis_url: "redis://local/db" }
 auth: { jwt_secret: "env-secret" }
 `)
 	t.Setenv("CONFIG_PATH", envPath)

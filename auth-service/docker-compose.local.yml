@@ -3,6 +3,22 @@ version: "3.9"
 name: auth-service-local
 
 services:
+  redis-db:
+    image: redis:7-alpine
+    container_name: redis-db
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "administrator"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a administrator PING | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks: [go-news-net]
+
   auth-db:
     image: postgres:16-alpine
     container_name: auth-db
@@ -40,19 +56,22 @@ services:
     depends_on:
       auth-migrate:
         condition: service_completed_successfully
+      redis-db:
+        condition: service_healthy
     environment:
       CONFIG_PATH: /etc/auth-service/config.yaml
     volumes:
       - ./config/local.yaml:/etc/auth-service/config.yaml:ro
     ports:
       - "50051:50051"
+      - "50081:50081"
     networks: [go-news-net]
 
 volumes:
   data:
+  redis-data:
 
 networks:
   go-news-net:
     external: true
     name: go-news-net
-
